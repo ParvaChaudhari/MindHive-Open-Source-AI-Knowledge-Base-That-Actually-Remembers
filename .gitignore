@@ -1,0 +1,53 @@
+# Root-level .gitignore — covers the entire monorepo
+
+# ── Python / Backend ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Secrets — NEVER commit real .env files
+backend/.env
+.env
+
+# Test & debug scripts
+backend/test_*.py
+backend/debug_*.py
+
+# ── Node / Frontend ──────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Editor / OS artefacts
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Stitch artefacts generated during scaffolding
+frontend/stitch_*/

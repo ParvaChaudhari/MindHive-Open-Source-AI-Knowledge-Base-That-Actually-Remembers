@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+supabase
+pymupdf
+google-genai
+python-dotenv
+langchain-text-splitters
+pydantic
+python-multipart
+beautifulsoup4
+youtube-transcript-api
+requests
