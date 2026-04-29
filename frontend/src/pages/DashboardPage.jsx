@@ -56,18 +56,18 @@ export default function DashboardPage({ onMenuClick }) {
 
         {/* Action Cards */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-          <button 
-            onClick={() => navigate('/upload')}
+          <button
+            onClick={() => navigate('/documents')}
             className="group text-left p-6 lg:p-8 bg-surface-container-lowest border border-outline-variant rounded-2xl hover:border-primary hover:shadow-lg transition-all"
           >
             <div className="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <span className="material-symbols-outlined text-primary text-2xl">cloud_upload</span>
             </div>
-            <h4 className="font-headline-md text-headline-md mb-2">Augment Knowledge</h4>
+            <h4 className="font-headline-md text-headline-md mb-2">Upload Documents</h4>
             <p className="text-on-surface-variant font-body-md">Ingest new documents into your hive and prepare them for semantic exploration.</p>
           </button>
 
-          <button 
+          <button
             onClick={() => navigate('/chat')}
             className="group text-left p-8 bg-surface-container-lowest border border-outline-variant rounded-2xl hover:border-primary hover:shadow-lg transition-all"
           >
@@ -88,7 +88,7 @@ export default function DashboardPage({ onMenuClick }) {
             </div>
             <div className="space-y-3">
               {docs.slice(0, 3).map((doc) => (
-                <div 
+                <div
                   key={doc.id}
                   onClick={() => doc.status === 'ready' && navigate(`/chat?doc=${doc.id}`)}
                   className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg border border-transparent hover:border-outline-variant transition-all cursor-pointer"

@@ -228,7 +228,7 @@ export default function ChatPage({ onMenuClick }) {
             <div className="text-center py-10 px-4">
               <p className="text-sm text-on-surface-variant mb-4">No indexed documents found.</p>
               <button 
-                onClick={() => navigate('/upload')}
+                onClick={() => navigate('/documents')}
                 className="w-full py-2 bg-primary text-surface rounded-lg font-label-md text-xs hover:opacity-90"
               >
                 Upload Document
