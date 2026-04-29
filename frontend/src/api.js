@@ -186,3 +186,10 @@ export const summarizeCollection = async (collectionId) => {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
+
+export const getChatHistory = async (docId) => {
+  const headers = await getHeaders();
+  const res = await fetch(`${API_BASE}/documents/${docId}/chats`, { headers });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+};

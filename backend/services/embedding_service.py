@@ -66,6 +66,8 @@ class EmbeddingService:
         # Gemini embedding API accepts up to 100 contents per call.
         all_embeddings: List[List[float]] = []
         for i in range(0, len(text_chunks), self.batch_size):
+            if i > 0:
+                await asyncio.sleep(2)  # Wait 2 seconds between batches to avoid rate limits
             batch = text_chunks[i:i + self.batch_size]
             response = await self._embed_with_retry(batch)
             all_embeddings.extend([item.values for item in response.embeddings])

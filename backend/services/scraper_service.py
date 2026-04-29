@@ -62,10 +62,9 @@ class ScraperService:
             except Exception:
                 pass
 
-            api = YouTubeTranscriptApi()
-            data = api.fetch(video_id)
+            data = YouTubeTranscriptApi.get_transcript(video_id)
 
-            full_text = " ".join([t.text for t in data])
+            full_text = " ".join([t["text"] for t in data])
             if not full_text.strip():
                 return {
                     "title": title,
@@ -91,6 +90,7 @@ class ScraperService:
                 or "could not retrieve a transcript for the video" in lowered
                 or "requestblocked" in lowered
                 or "ipblocked" in lowered
+                or "no element found" in lowered
             ):
                 msg = "YouTube transcript unavailable (requests blocked). Try a different network (VPN/residential), wait a bit, or use a different video."
 

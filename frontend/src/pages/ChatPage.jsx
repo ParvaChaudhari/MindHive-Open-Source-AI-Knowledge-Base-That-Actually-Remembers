@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { listDocuments, queryDocument, summarizeDocument, getDocument } from '../api';
+import { listDocuments, queryDocument, summarizeDocument, getDocument, getChatHistory } from '../api';
 import ProfileDropdown from '../components/ProfileDropdown';
 
 function LoadingBubble() {
@@ -33,6 +33,7 @@ export default function ChatPage({ onMenuClick }) {
   const [showDocSidebar, setShowDocSidebar] = useState(false);
   const [docBootstrapping, setDocBootstrapping] = useState(false);
   const bottomRef = useRef();
+  const pendingNavigationRef = useRef(null);
   
   const docIdFromUrl = useMemo(() => searchParams.get('doc'), [searchParams]);
   const autoSummary = useMemo(() => searchParams.get('autosummary') === '1', [searchParams]);
@@ -55,6 +56,18 @@ export default function ChatPage({ onMenuClick }) {
     if (!docIdFromUrl) return;
     if (!directDoc) return;
 
+    // Prevent glitch: React Query might provide stale data while fetching the new URL.
+    // Ensure the fetched document actually matches the current URL before acting.
+    if (directDoc.id !== docIdFromUrl) return;
+
+    // Prevent React Router lag glitch: If we clicked the sidebar, ignore URL until it catches up
+    if (pendingNavigationRef.current && pendingNavigationRef.current !== docIdFromUrl) {
+      return;
+    }
+    if (pendingNavigationRef.current === docIdFromUrl) {
+      pendingNavigationRef.current = null;
+    }
+
     // If doc is still processing, show a blank chat loading state.
     if (directDoc.status !== 'ready') {
       setDocBootstrapping(true);
@@ -75,15 +88,44 @@ export default function ChatPage({ onMenuClick }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  const selectDoc = (doc, docList = docs) => {
+  const selectDoc = async (doc, docList = docs) => {
+    // Update URL to reflect the selected document.
+    // If it's a different doc, this will also drop the autosummary parameter.
+    if (docIdFromUrl !== doc.id) {
+      pendingNavigationRef.current = doc.id;
+      navigate(`/chat?doc=${doc.id}`);
+    }
+    
     setSelectedDoc(doc);
-    setMessages([{
-      role: 'assistant',
-      content: `Hello! I'm ready to answer questions about **${doc.name}**.\n\nAsk me anything, or click **Get Summary** for a quick overview.`,
-      sources: null,
-    }]);
-    setInput('');
     setShowDocSidebar(false);
+    setInput('');
+    setMessages([]); // Clear old messages instantly while fetching new ones
+
+    try {
+      const history = await getChatHistory(doc.id);
+      const baseMessage = {
+        role: 'assistant',
+        content: `Hello! I'm ready to answer questions about **${doc.name}**.\n\nAsk me anything, or click **Get Summary** for a quick overview.`,
+        sources: null,
+      };
+
+      if (history.chats && history.chats.length > 0) {
+        const loadedMessages = [baseMessage];
+        for (const chat of history.chats) {
+           loadedMessages.push({ role: 'user', content: chat.question, sources: null });
+           loadedMessages.push({ role: 'assistant', content: chat.answer, sources: null });
+        }
+        setMessages(loadedMessages);
+      } else {
+        setMessages([baseMessage]);
+      }
+    } catch (e) {
+      setMessages([{
+        role: 'assistant',
+        content: `Hello! I'm ready to answer questions about **${doc.name}**.\n\nAsk me anything, or click **Get Summary** for a quick overview.`,
+        sources: null,
+      }]);
+    }
   };
 
   const handleSend = async () => {
@@ -122,14 +164,22 @@ export default function ChatPage({ onMenuClick }) {
     setSummarizing(false);
   };
 
+  const autoSummarizedRef = useRef(false);
+
   // Auto-summarize after redirect from ingestion.
   useEffect(() => {
-    if (!autoSummary) return;
+    if (!autoSummary || autoSummarizedRef.current) return;
     if (!selectedDoc || selectedDoc.status !== 'ready') return;
     if (summarizing) return;
-    // Prevent re-running on re-renders: if we've already posted a summary request, skip.
+    
+    // Check if we've already manually requested a summary in this session
     const alreadyRequested = messages.some((m) => m.role === 'user' && m.content.includes('Generate a summary'));
-    if (alreadyRequested) return;
+    if (alreadyRequested) {
+      autoSummarizedRef.current = true;
+      return;
+    }
+
+    autoSummarizedRef.current = true; // Lock it instantly
     handleSummarize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSummary, selectedDoc, summarizing, messages.length]);

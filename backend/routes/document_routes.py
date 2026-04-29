@@ -64,7 +64,7 @@ def _validate_embeddings(embeddings, expected_count: int):
         raise ValueError(f"Embeddings count mismatch: expected {expected_count}, got {len(embeddings)}.")
 
 async def process_pdf_task(doc_id: str, file_bytes: bytes):
-    """Background task to process PDF: extract, chunk, embed, and store."""
+    """Background task to process PDF: extract, chunk, embed, store, then cache summary."""
     try:
         # 1. Extract text
         print(f"[{doc_id}] Step 1: Extracting text from PDF...")
@@ -73,7 +73,6 @@ async def process_pdf_task(doc_id: str, file_bytes: bytes):
 
         if not pages:
             raise ValueError("PDF has no extractable text. It may be a scanned/image-only PDF.")
-        # Validate pages content
         for p in pages:
             _validate_non_empty(p.get("content"), "Extracted page content")
 
@@ -81,13 +80,12 @@ async def process_pdf_task(doc_id: str, file_bytes: bytes):
         print(f"[{doc_id}] Step 2: Chunking text...")
         chunks = pdf_service.chunk_text(pages)
         print(f"[{doc_id}] Created {len(chunks)} chunks.")
-
         _validate_chunks(chunks)
 
         # 3. Generate embeddings
         print(f"[{doc_id}] Step 3: Generating embeddings for {len(chunks)} chunks...")
         chunk_texts = [c["content"] for c in chunks]
-        _validate_non_empty("".join(chunk_texts[:1]), "Chunk text")  # quick sanity
+        _validate_non_empty("".join(chunk_texts[:1]), "Chunk text")
         embeddings = await embedding_service.generate_embeddings(chunk_texts)
         print(f"[{doc_id}] Got {len(embeddings)} embeddings.")
         _validate_embeddings(embeddings, expected_count=len(chunks))
@@ -96,7 +94,18 @@ async def process_pdf_task(doc_id: str, file_bytes: bytes):
         print(f"[{doc_id}] Step 4: Storing chunks in database...")
         await supabase_service.insert_chunks(doc_id, chunks, embeddings)
 
-        # 5. Mark as ready
+        # 5. Generate and cache summary
+        print(f"[{doc_id}] Step 5: Generating and caching summary...")
+        try:
+            top_chunks = chunks[:10]  # use first 10 chunks for summary
+            summary = await generation_service.summarize_document(top_chunks)
+            await supabase_service.store_document_summary(doc_id, summary)
+            print(f"[{doc_id}] Summary cached.")
+        except Exception as summary_err:
+            # Non-fatal — the document is still usable without a cached summary
+            print(f"[{doc_id}] ⚠️ Summary generation failed (non-fatal): {summary_err}")
+
+        # 6. Mark as ready
         await supabase_service.update_document_status(doc_id, "ready")
         print(f"[{doc_id}] ✅ Processing complete!")
     except Exception as e:
@@ -104,7 +113,7 @@ async def process_pdf_task(doc_id: str, file_bytes: bytes):
         await supabase_service.update_document_status(doc_id, "error")
 
 async def process_text_task(doc_id: str, text: str):
-    """Background task to process plain text (YouTube/Web)."""
+    """Background task to process plain text (YouTube/Web): chunk, embed, store, cache summary."""
     try:
         # 0. Validate fetched text
         _validate_non_empty(text, "Fetched text")
@@ -126,7 +135,17 @@ async def process_text_task(doc_id: str, text: str):
         print(f"[{doc_id}] Step 3: Storing chunks...")
         await supabase_service.insert_chunks(doc_id, chunks, embeddings)
 
-        # 4. Mark as ready
+        # 4. Generate and cache summary
+        print(f"[{doc_id}] Step 4: Generating and caching summary...")
+        try:
+            top_chunks = chunks[:10]
+            summary = await generation_service.summarize_document(top_chunks)
+            await supabase_service.store_document_summary(doc_id, summary)
+            print(f"[{doc_id}] Summary cached.")
+        except Exception as summary_err:
+            print(f"[{doc_id}] ⚠️ Summary generation failed (non-fatal): {summary_err}")
+
+        # 5. Mark as ready
         await supabase_service.update_document_status(doc_id, "ready")
         print(f"[{doc_id}] ✅ Processing complete!")
     except Exception as e:
@@ -144,6 +163,16 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
     try:
+        # Duplicate guard — return existing doc if same filename already processed
+        existing = await supabase_service.find_document_by_name(file.filename, user.id)
+        if existing and existing.get("status") == "ready":
+            return {
+                "message": "Document already exists in your knowledge base.",
+                "document_id": existing["id"],
+                "file_url": existing["file_url"],
+                "duplicate": True
+            }
+
         file_bytes = await file.read()
         
         # Check file size (3MB limit)

@@ -262,3 +262,54 @@ Daily Digest:"""
             )
         )
         return response.text
+
+    async def summarize_learning_period(self, period_name: str, doc_summaries: List[dict]) -> str:
+        """Generates a summary of what was learned during a specific period (e.g. "April 2024")."""
+        context = "\n\n---\n\n".join([
+            f"Document: {d['name']}\nSummary: {d['summary']}"
+            for d in doc_summaries
+        ])
+
+        prompt = f"""You are MindHive's Knowledge Agent. 
+The user studied the following documents during {period_name}.
+Provide a high-level "Monthly Knowledge Review" that:
+1. Synthesizes the major themes learned this month.
+2. Identifies connections between different documents.
+3. Provides a "Mastery Score" summary (how much breadth/depth was covered).
+
+Be encouraging and professional.
+
+Documents learned:
+{context}
+
+Monthly Review:"""
+
+        response = await self._generate_with_retry(
+            prompt=prompt,
+            config=types.GenerateContentConfig(temperature=0.4),
+        )
+        return response.text
+
+    async def summarize_chat(self, chat_history: List[dict]) -> str:
+        """Generates a summary of the conversation based on chat history."""
+        # chat_history: list of {"question": str, "answer": str}
+        context = "\n\n".join([
+            f"User: {c['question']}\nAgent: {c['answer']}"
+            for c in chat_history
+        ])
+
+        prompt = f"""You are MindHive's Knowledge Agent.
+Summarize the following conversation history between the user and the agent regarding a document.
+Focus on the key questions the user asked and the main takeaways from the agent's answers.
+Keep the summary concise and structured.
+
+Conversation History:
+{context}
+
+Summary:"""
+
+        response = await self._generate_with_retry(
+            prompt=prompt,
+            config=types.GenerateContentConfig(temperature=0.3),
+        )
+        return response.text

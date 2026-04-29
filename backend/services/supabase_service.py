@@ -114,7 +114,9 @@ class SupabaseService:
 
     async def get_document(self, doc_id: str, user_id: str = None) -> Dict:
         """Returns a single document by ID, optionally filtered by user."""
-        query = self.client.table("documents").select("id, name, status, file_url, created_at, collection_id, user_id").eq("id", doc_id)
+        query = self.client.table("documents").select(
+            "id, name, status, file_url, created_at, collection_id, user_id, summary, summary_generated_at"
+        ).eq("id", doc_id)
         if user_id:
             query = query.eq("user_id", user_id)
         
@@ -146,6 +148,30 @@ class SupabaseService:
         except Exception as e:
             print(f"Error deleting document: {e}")
             raise e
+
+    async def store_document_summary(self, doc_id: str, summary: str):
+        """Writes (or overwrites) the cached summary for a document."""
+        from datetime import datetime, timezone
+        self.client.table("documents").update({
+            "summary": summary,
+            "summary_generated_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", doc_id).execute()
+
+    async def find_document_by_name(self, name: str, user_id: str) -> Dict:
+        """
+        Returns the first ready document matching the filename for a user.
+        Used to detect duplicate uploads.
+        """
+        result = (
+            self.client.table("documents")
+            .select("id, name, status, file_url, created_at, collection_id, summary, summary_generated_at")
+            .eq("name", name)
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
 
     # ── Collection CRUD ────────────────────────────────────────────────────────
 

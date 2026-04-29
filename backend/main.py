@@ -9,7 +9,7 @@ load_dotenv(dotenv_path=env_path)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
-from routes import document_routes, query_routes, collection_routes
+from routes import document_routes, query_routes, collection_routes, timeline_routes
 
 app = FastAPI(title="MindHive API")
 
@@ -31,6 +31,7 @@ supabase: Client = create_client(url, key)
 app.include_router(document_routes.router)
 app.include_router(query_routes.router)
 app.include_router(collection_routes.router)
+app.include_router(timeline_routes.router)
 
 @app.get("/")
 async def root():
