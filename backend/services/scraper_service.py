@@ -62,9 +62,10 @@ class ScraperService:
             except Exception:
                 pass
 
-            data = YouTubeTranscriptApi.get_transcript(video_id)
+            ytt = YouTubeTranscriptApi()
+            transcript = ytt.fetch(video_id)
 
-            full_text = " ".join([t["text"] for t in data])
+            full_text = " ".join([snippet.text for snippet in transcript])
             if not full_text.strip():
                 return {
                     "title": title,
