@@ -31,6 +31,7 @@ export default function ChatPage({ onMenuClick }) {
   const [loading, setLoading] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [showDocSidebar, setShowDocSidebar] = useState(false);
+  const [isDocSidebarCollapsed, setIsDocSidebarCollapsed] = useState(false);
   const [docBootstrapping, setDocBootstrapping] = useState(false);
   const bottomRef = useRef();
   const pendingNavigationRef = useRef(null);
@@ -213,43 +214,56 @@ export default function ChatPage({ onMenuClick }) {
       )}
 
       {/* Document Sidebar */}
-      <aside className={`absolute lg:relative w-80 h-full border-r border-stone-200 dark:border-stone-800 flex flex-col bg-surface-container-low z-40 transition-transform duration-300 ${showDocSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-6 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between">
-          <div>
-            <h3 className="font-headline text-headline-md mb-1">Knowledge Base</h3>
-            <p className="text-xs text-outline uppercase tracking-widest font-bold">Your Documents</p>
-          </div>
-          <button onClick={() => setShowDocSidebar(false)} className="lg:hidden text-outline">
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-1">
-          {docs.length === 0 ? (
-            <div className="text-center py-10 px-4">
-              <p className="text-sm text-on-surface-variant mb-4">No indexed documents found.</p>
-              <button 
-                onClick={() => navigate('/documents')}
-                className="w-full py-2 bg-primary text-surface rounded-lg font-label-md text-xs hover:opacity-90"
-              >
-                Upload Document
-              </button>
+      <aside className={`absolute lg:relative h-full border-r border-stone-200 dark:border-stone-800 flex flex-col bg-surface-container-low z-40 transition-all duration-300 ${showDocSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${isDocSidebarCollapsed ? 'w-0' : 'w-80'}`}>
+        {/* Toggle Button */}
+        <button 
+          onClick={() => setIsDocSidebarCollapsed(!isDocSidebarCollapsed)}
+          className={`hidden lg:flex absolute top-1/2 -translate-y-1/2 w-6 h-12 bg-surface-container-low border border-stone-200 dark:border-stone-800 rounded-r-lg items-center justify-center text-stone-500 hover:text-stone-900 shadow-sm z-50 transition-all ${isDocSidebarCollapsed ? 'left-0' : 'left-full'}`}
+          title={isDocSidebarCollapsed ? 'Show Knowledge Base' : 'Hide Knowledge Base'}
+        >
+          <span className="text-[12px] font-bold select-none">
+            {isDocSidebarCollapsed ? '>' : '<'}
+          </span>
+        </button>
+
+        <div className={`flex flex-col h-full overflow-hidden ${isDocSidebarCollapsed ? 'opacity-0 invisible' : 'opacity-100 visible'}`}>
+          <div className="p-6 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
+            <div>
+              <h3 className="font-headline text-headline-md mb-1">Knowledge Base</h3>
+              <p className="text-xs text-outline uppercase tracking-widest font-bold">Your Documents</p>
             </div>
-          ) : (
-            docs.map((doc) => (
-              <button
-                key={doc.id}
-                onClick={() => selectDoc(doc)}
-                className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all ${
-                  selectedDoc?.id === doc.id 
-                    ? 'bg-surface-container-highest border border-outline-variant shadow-sm' 
-                    : 'hover:bg-surface-container'
-                }`}
-              >
-                <span className="material-symbols-outlined text-outline">description</span>
-                <span className="text-sm font-label-md truncate">{doc.name}</span>
-              </button>
-            ))
-          )}
+            <button onClick={() => setShowDocSidebar(false)} className="lg:hidden text-outline">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-1">
+            {docs.length === 0 ? (
+              <div className="text-center py-10 px-4">
+                <p className="text-sm text-on-surface-variant mb-4">No indexed documents found.</p>
+                <button 
+                  onClick={() => navigate('/documents')}
+                  className="w-full py-2 bg-primary text-surface rounded-lg font-label-md text-xs hover:opacity-90"
+                >
+                  Upload Document
+                </button>
+              </div>
+            ) : (
+              docs.map((doc) => (
+                <button
+                  key={doc.id}
+                  onClick={() => selectDoc(doc)}
+                  className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all ${
+                    selectedDoc?.id === doc.id 
+                      ? 'bg-surface-container-highest border border-outline-variant shadow-sm' 
+                      : 'hover:bg-surface-container'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-outline">description</span>
+                  <span className="text-sm font-label-md truncate">{doc.name}</span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       </aside>
 
