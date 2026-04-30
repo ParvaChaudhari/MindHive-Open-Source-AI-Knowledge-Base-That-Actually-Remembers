@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from fastapi import Depends
 import time
 import asyncio
+import hashlib
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -163,31 +164,47 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
     try:
-        # Duplicate guard — return existing doc if same filename already processed
-        existing = await supabase_service.find_document_by_name(file.filename, user.id)
-        if existing and existing.get("status") == "ready":
-            return {
-                "message": "Document already exists in your knowledge base.",
-                "document_id": existing["id"],
-                "file_url": existing["file_url"],
-                "duplicate": True
-            }
-
         file_bytes = await file.read()
         
         # Check file size (3MB limit)
         if len(file_bytes) > 3 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File size exceeds the 3MB limit.")
+            
+        # Compute file hash
+        file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+        # Duplicate guard — return existing doc if exact same content already processed
+        existing = await supabase_service.find_document_by_hash(file_hash, user.id)
+        if existing and existing.get("status") == "ready":
+            return {
+                "message": f"Document '{existing['name']}' is already present in your knowledge base.",
+                "document_id": existing["id"],
+                "file_url": existing["file_url"],
+                "duplicate": True
+            }
+
+        # Resolve name conflicts
+        import os
+        base_name, ext = os.path.splitext(file.filename)
+        existing_docs = await supabase_service.find_documents_by_name_prefix(base_name, user.id)
+        existing_names = {doc["name"] for doc in existing_docs}
+
+        final_name = file.filename
+        counter = 1
+        while final_name in existing_names:
+            final_name = f"{base_name} ({counter}){ext}"
+            counter += 1
         
         # 1. Upload to Storage
-        file_url = await supabase_service.upload_pdf(file.filename, file_bytes)
+        file_url = await supabase_service.upload_pdf(final_name, file_bytes)
         
         # 2. Create Document Record
         doc_id = await supabase_service.create_document(
-            name=file.filename,
+            name=final_name,
             file_url=file_url,
             collection_id=collection_id,
-            user_id=user.id
+            user_id=user.id,
+            file_hash=file_hash
         )
         
         # 3. Start Background Processing
@@ -196,7 +213,8 @@ async def upload_document(
         return {
             "message": "Upload successful. Processing started.",
             "document_id": doc_id,
-            "file_url": file_url
+            "file_url": file_url,
+            "name": final_name
         }
     except HTTPException:
         raise

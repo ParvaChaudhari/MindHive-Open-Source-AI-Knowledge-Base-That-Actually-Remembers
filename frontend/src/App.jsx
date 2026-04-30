@@ -8,6 +8,7 @@ import CollectionsPage from './pages/CollectionsPage';
 import ChatPage from './pages/ChatPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import QueenBee from './components/QueenBee';
 import { useState } from 'react';
 
 const ProtectedRoute = ({ children }) => {
@@ -42,6 +43,7 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
+      {user && <QueenBee />}
     </div>
   );
 }

@@ -193,3 +193,15 @@ export const getChatHistory = async (docId) => {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
+
+export const agentChat = async (message, history = []) => {
+  const headers = await getHeaders();
+  const res = await fetch(`${API_BASE}/agent/chat`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ message, history }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+};
+

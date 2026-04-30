@@ -22,7 +22,7 @@ class SupabaseService:
         
         return self.client.storage.from_(bucket).get_public_url(path)
 
-    async def create_document(self, name: str, file_url: str, user_id: str, collection_id: str = None) -> str:
+    async def create_document(self, name: str, file_url: str, user_id: str, collection_id: str = None, file_hash: str = None) -> str:
         """Creates a document record and returns the ID."""
         data = {
             "name": name,
@@ -31,6 +31,9 @@ class SupabaseService:
             "collection_id": collection_id,
             "user_id": user_id
         }
+        if file_hash:
+            data["file_hash"] = file_hash
+            
         result = self.client.table("documents").insert(data).execute()
         return result.data[0]["id"]
 
@@ -172,6 +175,30 @@ class SupabaseService:
             .execute()
         )
         return result.data[0] if result.data else None
+
+    async def find_document_by_hash(self, file_hash: str, user_id: str) -> Dict:
+        """Finds a document by its file content hash."""
+        result = (
+            self.client.table("documents")
+            .select("id, name, status, file_url, created_at, collection_id, summary, summary_generated_at")
+            .eq("file_hash", file_hash)
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    async def find_documents_by_name_prefix(self, prefix: str, user_id: str) -> List[Dict]:
+        """Finds all documents that start with the given prefix."""
+        result = (
+            self.client.table("documents")
+            .select("name")
+            .like("name", f"{prefix}%")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return result.data
 
     # ── Collection CRUD ────────────────────────────────────────────────────────
 
