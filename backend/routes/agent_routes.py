@@ -9,7 +9,7 @@ agent_service = AgentService()
 
 class Message(BaseModel):
     role: str  # "user" or "agent"
-    content: str
+    content: str | None = ""
 
 class AgentChatRequest(BaseModel):
     message: str

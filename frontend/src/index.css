@@ -59,3 +59,4 @@
 .custom-scrollbar::-webkit-scrollbar-thumb {
   @apply bg-stone-300 dark:bg-stone-700 rounded-full;
 }
+

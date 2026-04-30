@@ -26,11 +26,19 @@ const ProtectedRoute = ({ children }) => {
 function AppContent() {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <div className="flex h-screen bg-surface text-on-surface overflow-hidden">
-      {user && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
-      <main className={`flex-1 overflow-y-auto relative bg-stone-50/50 dark:bg-stone-950/50 ${user ? 'lg:pl-64' : ''}`}>
+      {user && (
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
+          isCollapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
+      )}
+      <main className={`flex-1 overflow-y-auto relative bg-stone-50/50 dark:bg-stone-950/50 transition-all duration-300 ${user ? (sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') : ''}`}>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
           <Route path="/signup" element={user ? <Navigate to="/" /> : <SignupPage />} />

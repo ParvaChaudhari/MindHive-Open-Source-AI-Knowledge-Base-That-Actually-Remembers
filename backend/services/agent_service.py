@@ -123,7 +123,7 @@ class AgentService:
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=os.environ.get("NVIDIA_API_KEY")
         )
-        self.model = os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.3-nemotron-super-49b-v1.5")
+        self.model = os.environ.get("NVIDIA_MODEL")
         self.timeline_service = TimelineService()
         self.supabase = SupabaseService()
         self.scraper_service = ScraperService()
@@ -211,7 +211,7 @@ class AgentService:
         
         IMPORTANT FORMATTING RULES:
         - When listing documents or showing timelines, NEVER show the raw document IDs to the user. Keep IDs hidden and only use them internally for tool calls.
-        - Present lists of documents as a neat Markdown table with columns for Document Name (with a 📄 icon) and Upload Date.
+        - When presenting lists of documents or showing timelines, show as a clear numbered list (e.g., 1.📄 Document Name - Upload Date). Each document should be on a new line.
         """
         
         messages = [{"role": "system", "content": system_prompt}]
@@ -268,6 +268,6 @@ class AgentService:
                     })
                 
             else:
-                return response_message.content
+                return response_message.content or "I'm sorry, my mind went blank for a second. Could you repeat that?"
                 
         return "I hit my action limit for this request. Please try breaking it into smaller steps."
