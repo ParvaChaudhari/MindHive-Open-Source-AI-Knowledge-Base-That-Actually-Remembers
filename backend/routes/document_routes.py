@@ -7,6 +7,8 @@ from services.scraper_service import ScraperService
 from services.generation_service import GenerationService
 from services.upstream_errors import UpstreamServiceUnavailable, UpstreamDailyQuotaReached
 from services.auth_service import get_current_user
+from services.security_utils import is_safe_url
+from cachetools import TTLCache
 from pydantic import BaseModel
 from fastapi import Depends
 import time
@@ -16,10 +18,17 @@ import hashlib
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 pdf_service = PDFService()
-supabase_service = SupabaseService()
 embedding_service = EmbeddingService()
 scraper_service = ScraperService()
 generation_service = GenerationService()
+
+# Dependency to get an authenticated Supabase service
+async def get_supabase(auth=Depends(get_current_user)):
+    user, token = auth
+    return SupabaseService(token=token)
+
+# Global service for background tasks (uses service key)
+admin_supabase = SupabaseService()
 
 class ExternalUrlRequest(BaseModel):
     url: str
@@ -29,10 +38,11 @@ class RenameDocumentRequest(BaseModel):
     name: str
 
 _RATE_LIMIT_LOCK = asyncio.Lock()
-_LAST_INGEST_BY_USER: dict[str, float] = {}
 # Simple cooldown to prevent spam-clicking ingestion endpoints.
-# This is in-memory per API instance (fine for local/dev and single-instance deploys).
 INGEST_COOLDOWN_SECONDS = 8.0
+
+# TTLCache ensures memory is bounded and entries expire automatically.
+_LAST_INGEST_BY_USER = TTLCache(maxsize=1000, ttl=INGEST_COOLDOWN_SECONDS * 2)
 
 async def _enforce_ingest_cooldown(user_id: str):
     now = time.time()
@@ -93,25 +103,25 @@ async def process_pdf_task(doc_id: str, file_bytes: bytes):
 
         # 4. Store chunks
         print(f"[{doc_id}] Step 4: Storing chunks in database...")
-        await supabase_service.insert_chunks(doc_id, chunks, embeddings)
+        await admin_supabase.insert_chunks(doc_id, chunks, embeddings)
 
         # 5. Generate and cache summary
         print(f"[{doc_id}] Step 5: Generating and caching summary...")
         try:
             top_chunks = chunks[:10]  # use first 10 chunks for summary
             summary = await generation_service.summarize_document(top_chunks)
-            await supabase_service.store_document_summary(doc_id, summary)
+            await admin_supabase.store_document_summary(doc_id, summary)
             print(f"[{doc_id}] Summary cached.")
         except Exception as summary_err:
             # Non-fatal — the document is still usable without a cached summary
             print(f"[{doc_id}] ⚠️ Summary generation failed (non-fatal): {summary_err}")
 
         # 6. Mark as ready
-        await supabase_service.update_document_status(doc_id, "ready")
+        await admin_supabase.update_document_status(doc_id, "ready")
         print(f"[{doc_id}] ✅ Processing complete!")
     except Exception as e:
         print(f"[{doc_id}] ❌ Error: {str(e)}")
-        await supabase_service.update_document_status(doc_id, "error")
+        await admin_supabase.update_document_status(doc_id, "error")
 
 async def process_text_task(doc_id: str, text: str):
     """Background task to process plain text (YouTube/Web): chunk, embed, store, cache summary."""
@@ -134,32 +144,34 @@ async def process_text_task(doc_id: str, text: str):
 
         # 3. Store chunks
         print(f"[{doc_id}] Step 3: Storing chunks...")
-        await supabase_service.insert_chunks(doc_id, chunks, embeddings)
+        await admin_supabase.insert_chunks(doc_id, chunks, embeddings)
 
         # 4. Generate and cache summary
         print(f"[{doc_id}] Step 4: Generating and caching summary...")
         try:
             top_chunks = chunks[:10]
             summary = await generation_service.summarize_document(top_chunks)
-            await supabase_service.store_document_summary(doc_id, summary)
+            await admin_supabase.store_document_summary(doc_id, summary)
             print(f"[{doc_id}] Summary cached.")
         except Exception as summary_err:
             print(f"[{doc_id}] ⚠️ Summary generation failed (non-fatal): {summary_err}")
 
         # 5. Mark as ready
-        await supabase_service.update_document_status(doc_id, "ready")
+        await admin_supabase.update_document_status(doc_id, "ready")
         print(f"[{doc_id}] ✅ Processing complete!")
     except Exception as e:
         print(f"[{doc_id}] ❌ Error: {str(e)}")
-        await supabase_service.update_document_status(doc_id, "error")
+        await admin_supabase.update_document_status(doc_id, "error")
 
 @router.post("/upload")
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     collection_id: Optional[str] = None,
-    user=Depends(get_current_user)
+    auth=Depends(get_current_user),
+    sb: SupabaseService = Depends(get_supabase)
 ):
+    user, token = auth
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
@@ -170,11 +182,15 @@ async def upload_document(
         if len(file_bytes) > 3 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File size exceeds the 3MB limit.")
             
+        # Validate magic bytes (PDF header: %PDF-)
+        if not file_bytes.startswith(b"%PDF-"):
+            raise HTTPException(status_code=400, detail="Invalid PDF content. The file header is missing.")
+            
         # Compute file hash
         file_hash = hashlib.sha256(file_bytes).hexdigest()
 
-        # Duplicate guard — return existing doc if exact same content already processed
-        existing = await supabase_service.find_document_by_hash(file_hash, user.id)
+        # Duplicate guard
+        existing = await sb.find_document_by_hash(file_hash, user.id)
         if existing and existing.get("status") == "ready":
             return {
                 "message": f"Document '{existing['name']}' is already present in your knowledge base.",
@@ -186,7 +202,7 @@ async def upload_document(
         # Resolve name conflicts
         import os
         base_name, ext = os.path.splitext(file.filename)
-        existing_docs = await supabase_service.find_documents_by_name_prefix(base_name, user.id)
+        existing_docs = await sb.find_documents_by_name_prefix(base_name, user.id)
         existing_names = {doc["name"] for doc in existing_docs}
 
         final_name = file.filename
@@ -196,10 +212,10 @@ async def upload_document(
             counter += 1
         
         # 1. Upload to Storage
-        file_url = await supabase_service.upload_pdf(final_name, file_bytes)
+        file_url = await sb.upload_pdf(final_name, file_bytes)
         
         # 2. Create Document Record
-        doc_id = await supabase_service.create_document(
+        doc_id = await sb.create_document(
             name=final_name,
             file_url=file_url,
             collection_id=collection_id,
@@ -219,44 +235,54 @@ async def upload_document(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[upload_document] Internal error: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred during upload. Please try again.")
 
 @router.get("/")
-async def list_documents(user=Depends(get_current_user)):
-    docs = await supabase_service.list_documents(user_id=user.id)
+async def list_documents(auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
+    user, token = auth
+    docs = await sb.list_documents(user_id=user.id)
     return {"documents": docs}
 
 @router.get("/{doc_id}")
-async def get_document(doc_id: str, user=Depends(get_current_user)):
-    doc = await supabase_service.get_document(doc_id, user_id=user.id)
+async def get_document(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
+    user, token = auth
+    doc = await sb.get_document(doc_id, user_id=user.id)
     return doc
 
 @router.delete("/{doc_id}")
-async def delete_document(doc_id: str, user=Depends(get_current_user)):
+async def delete_document(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
+    user, token = auth
     try:
-        await supabase_service.delete_document(doc_id, user_id=user.id)
+        await sb.delete_document(doc_id, user_id=user.id)
         return {"message": "Document deleted successfully."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[delete_document] Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Could not delete document. Please try again.")
 
 @router.patch("/{doc_id}")
-async def rename_document(doc_id: str, payload: RenameDocumentRequest, user=Depends(get_current_user)):
+async def rename_document(doc_id: str, payload: RenameDocumentRequest, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
+    user, token = auth
     name = (payload.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Document name cannot be empty.")
     if len(name) > 255:
         raise HTTPException(status_code=400, detail="Document name is too long (max 255).")
     try:
-        updated = await supabase_service.update_document_name(doc_id, user_id=user.id, name=name)
+        updated = await sb.update_document_name(doc_id, user_id=user.id, name=name)
         return updated
     except ValueError:
         raise HTTPException(status_code=404, detail="Document not found.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[rename_document] Internal error: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while renaming.")
 
 @router.post("/youtube")
-async def ingest_youtube(request: ExternalUrlRequest, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+async def ingest_youtube(request: ExternalUrlRequest, background_tasks: BackgroundTasks, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Ingests a YouTube video transcript."""
+    user, token = auth
+    if not is_safe_url(request.url):
+        raise HTTPException(status_code=400, detail="Invalid or restricted URL.")
     try:
         await _enforce_ingest_cooldown(user.id)
         data = scraper_service.get_youtube_transcript(request.url)
@@ -272,7 +298,7 @@ async def ingest_youtube(request: ExternalUrlRequest, background_tasks: Backgrou
             raise HTTPException(status_code=503, detail=str(e))
         except UpstreamDailyQuotaReached as e:
             raise HTTPException(status_code=429, detail=str(e))
-        doc_id = await supabase_service.create_document(
+        doc_id = await sb.create_document(
             name=yt_ai["title"],
             file_url=request.url,
             collection_id=request.collection_id,
@@ -288,15 +314,19 @@ async def ingest_youtube(request: ExternalUrlRequest, background_tasks: Backgrou
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[ingest_youtube] Internal error: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred while fetching the YouTube transcript.")
 
 @router.post("/web")
-async def ingest_web(request: ExternalUrlRequest, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+async def ingest_web(request: ExternalUrlRequest, background_tasks: BackgroundTasks, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Ingests a web page content."""
+    user, token = auth
+    if not is_safe_url(request.url):
+        raise HTTPException(status_code=400, detail="Invalid or restricted URL.")
     try:
         await _enforce_ingest_cooldown(user.id)
         data = scraper_service.scrape_web_url(request.url)
-        doc_id = await supabase_service.create_document(
+        doc_id = await sb.create_document(
             name=data["title"],
             file_url=request.url,
             collection_id=request.collection_id,
@@ -305,4 +335,5 @@ async def ingest_web(request: ExternalUrlRequest, background_tasks: BackgroundTa
         background_tasks.add_task(process_text_task, doc_id, data["content"])
         return {"message": "Web page ingestion started.", "document_id": doc_id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[ingest_web] Internal error: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred while scraping the web page.")

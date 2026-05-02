@@ -9,6 +9,7 @@ from services.scraper_service import ScraperService
 from services.generation_service import GenerationService
 from services.chat_service import ChatService
 from services.embedding_service import EmbeddingService
+from services.security_utils import is_safe_url
 
 QUEEN_BEE_TOOLS = [
     {
@@ -118,14 +119,14 @@ OPENAI_TOOLS = [
 ]
 
 class AgentService:
-    def __init__(self):
+    def __init__(self, token: str = None):
         self.client = AsyncOpenAI(
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=os.environ.get("NVIDIA_API_KEY")
         )
         self.model = os.environ.get("NVIDIA_MODEL")
-        self.timeline_service = TimelineService()
-        self.supabase = SupabaseService()
+        self.timeline_service = TimelineService(token=token)
+        self.supabase = SupabaseService(token=token)
         self.scraper_service = ScraperService()
         self.generation_service = GenerationService()
         self.chat_service = ChatService()
@@ -148,6 +149,8 @@ class AgentService:
                 return f"Collection '{args['name']}' created successfully."
             
             elif tool_name == "ingest_url":
+                if not is_safe_url(args["url"]):
+                    return "Error: Restricted or invalid URL."
                 from routes.document_routes import process_text_task
                 scraped = self.scraper_service.scrape_web_url(args["url"])
                 doc_id = await self.supabase.create_document(

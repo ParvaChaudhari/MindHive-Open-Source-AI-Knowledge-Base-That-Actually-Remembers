@@ -4,8 +4,8 @@ from services.supabase_service import SupabaseService
 from services.generation_service import GenerationService
 
 class TimelineService:
-    def __init__(self):
-        self.supabase = SupabaseService()
+    def __init__(self, token: str = None):
+        self.supabase = SupabaseService(token=token)
         self.generation = GenerationService()
 
     async def get_timeline(self, user_id: str) -> Dict:

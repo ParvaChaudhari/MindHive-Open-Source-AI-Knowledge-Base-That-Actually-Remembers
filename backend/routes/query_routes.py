@@ -6,22 +6,29 @@ from services.embedding_service import EmbeddingService
 from services.generation_service import GenerationService
 from services.upstream_errors import UpstreamServiceUnavailable, UpstreamDailyQuotaReached
 from services.chat_service import ChatService
+from services.security_utils import check_rate_limit
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-supabase_service = SupabaseService()
 embedding_service = EmbeddingService()
 generation_service = GenerationService()
 chat_service = ChatService()
+
+# Dependency to get an authenticated Supabase service
+async def get_supabase(auth=Depends(get_current_user)):
+    user, token = auth
+    return SupabaseService(token=token)
 
 class QueryRequest(BaseModel):
     question: str
 
 
 @router.post("/{doc_id}/query")
-async def query_document(doc_id: str, body: QueryRequest, user=Depends(get_current_user)):
+async def query_document(doc_id: str, body: QueryRequest, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """RAG: Find relevant chunks and answer the question using Gemini."""
-    doc = await supabase_service.get_document(doc_id, user_id=user.id)
+    user, token = auth
+    check_rate_limit(user.id)
+    doc = await sb.get_document(doc_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
     if doc["status"] != "ready":
@@ -36,7 +43,7 @@ async def query_document(doc_id: str, body: QueryRequest, user=Depends(get_curre
         raise HTTPException(status_code=429, detail=str(e))
 
     # 2. Find most relevant chunks via similarity search
-    relevant_chunks = await supabase_service.match_chunks(doc_id, query_embedding, match_count=5)
+    relevant_chunks = await sb.match_chunks(doc_id, query_embedding, match_count=5)
 
     if not relevant_chunks:
         raise HTTPException(status_code=404, detail="No relevant content found in this document.")
@@ -63,9 +70,10 @@ async def query_document(doc_id: str, body: QueryRequest, user=Depends(get_curre
     }
 
 @router.get("/{doc_id}/summary")
-async def summarize_document(doc_id: str, user=Depends(get_current_user)):
+async def summarize_document(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Returns cached summary, or generates + caches one on first request."""
-    doc = await supabase_service.get_document(doc_id, user_id=user.id)
+    user, token = auth
+    doc = await sb.get_document(doc_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
     if doc["status"] != "ready":
@@ -82,7 +90,8 @@ async def summarize_document(doc_id: str, user=Depends(get_current_user)):
         }
 
     # ── Cache miss: generate, store, return ──────────────────────────────────
-    top_chunks = await supabase_service.get_top_chunks(doc_id, limit=10)
+    check_rate_limit(user.id)
+    top_chunks = await sb.get_top_chunks(doc_id, limit=10)
     if not top_chunks:
         raise HTTPException(status_code=404, detail="No content found for this document.")
 
@@ -94,7 +103,7 @@ async def summarize_document(doc_id: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=429, detail=str(e))
 
     # Store for next time
-    await supabase_service.store_document_summary(doc_id, summary)
+    await sb.store_document_summary(doc_id, summary)
 
     return {
         "document_id": doc_id,
@@ -104,15 +113,17 @@ async def summarize_document(doc_id: str, user=Depends(get_current_user)):
     }
 
 @router.get("/{doc_id}/flashcards")
-async def generate_flashcards(doc_id: str, user=Depends(get_current_user)):
+async def generate_flashcards(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Generates AI flashcards for the document."""
-    doc = await supabase_service.get_document(doc_id, user_id=user.id)
+    user, token = auth
+    check_rate_limit(user.id)
+    doc = await sb.get_document(doc_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=400, detail="Document not found or ready.")
     if doc["status"] != "ready":
         raise HTTPException(status_code=400, detail="Document not ready.")
 
-    top_chunks = await supabase_service.get_top_chunks(doc_id, limit=15)
+    top_chunks = await sb.get_top_chunks(doc_id, limit=15)
     if not top_chunks:
         raise HTTPException(status_code=404, detail="No content found.")
 
@@ -125,9 +136,10 @@ async def generate_flashcards(doc_id: str, user=Depends(get_current_user)):
     return {"flashcards": flashcards}
 
 @router.get("/{doc_id}/chats")
-async def get_chat_history(doc_id: str, user=Depends(get_current_user)):
+async def get_chat_history(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Fetches all past Q&A for this document."""
-    doc = await supabase_service.get_document(doc_id, user_id=user.id)
+    user, token = auth
+    doc = await sb.get_document(doc_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
 
@@ -135,9 +147,11 @@ async def get_chat_history(doc_id: str, user=Depends(get_current_user)):
     return {"chats": history}
 
 @router.get("/{doc_id}/chats/summary")
-async def summarize_chat_history(doc_id: str, user=Depends(get_current_user)):
+async def summarize_chat_history(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Generates an AI summary of the conversation history."""
-    doc = await supabase_service.get_document(doc_id, user_id=user.id)
+    user, token = auth
+    check_rate_limit(user.id)
+    doc = await sb.get_document(doc_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
 
@@ -149,4 +163,5 @@ async def summarize_chat_history(doc_id: str, user=Depends(get_current_user)):
     except UpstreamDailyQuotaReached as e:
         raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[summarize_chat] Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to summarize chat history.")

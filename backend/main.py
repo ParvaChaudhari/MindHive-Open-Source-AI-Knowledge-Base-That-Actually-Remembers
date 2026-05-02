@@ -10,13 +10,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from routes import document_routes, query_routes, collection_routes, timeline_routes, agent_routes
+from services.security_utils import sanitize_log
 
 app = FastAPI(title="MindHive API")
 
 # CORS Middleware
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,7 +48,8 @@ async def health_check():
         supabase.table("documents").select("id").limit(1).execute()
         return {"status": "connected", "database": "reachable"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        print(sanitize_log(f"[health_check] Database error: {e}"))
+        return {"status": "error", "message": "Database connection failed"}
 
 if __name__ == "__main__":
     import uvicorn

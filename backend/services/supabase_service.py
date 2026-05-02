@@ -1,12 +1,24 @@
 import os
 from supabase import create_client, Client
 from typing import List, Dict
+from services.security_utils import sanitize_log
 
 class SupabaseService:
-    def __init__(self):
+    def __init__(self, token: str = None):
         url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_KEY")
-        self.client: Client = create_client(url, key)
+        anon_key = os.environ.get("SUPABASE_ANON_KEY")
+        service_key = os.environ.get("SUPABASE_SERVICE_KEY")
+        
+        # Admin client for bypass operations (storage, etc)
+        self.admin_client: Client = create_client(url, service_key)
+        
+        # Default client: if token is provided, use it (RLS will be active)
+        # Otherwise, use service key (legacy/background mode)
+        if token:
+            self.client: Client = create_client(url, anon_key)
+            self.client.postgrest.auth(token)
+        else:
+            self.client = self.admin_client
 
     async def upload_pdf(self, file_name: str, file_bytes: bytes) -> str:
         """Uploads a PDF to Supabase Storage and returns the public URL."""
@@ -115,15 +127,16 @@ class SupabaseService:
         )
         return result.data
 
-    async def get_document(self, doc_id: str, user_id: str = None) -> Dict:
-        """Returns a single document by ID, optionally filtered by user."""
-        query = self.client.table("documents").select(
-            "id, name, status, file_url, created_at, collection_id, user_id, summary, summary_generated_at"
-        ).eq("id", doc_id)
-        if user_id:
-            query = query.eq("user_id", user_id)
-        
-        result = query.single().execute()
+    async def get_document(self, doc_id: str, user_id: str) -> Dict:
+        """Returns a single document by ID, strictly scoped to user."""
+        result = (
+            self.client.table("documents")
+            .select("id, name, status, file_url, created_at, collection_id, user_id, summary, summary_generated_at")
+            .eq("id", doc_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
         return result.data
 
     async def delete_document(self, doc_id: str, user_id: str):
@@ -144,12 +157,12 @@ class SupabaseService:
             # Note: We try-catch storage delete in case the file was already gone
             try:
                 self.client.storage.from_("pdfs").remove([path])
-            except:
-                pass
+            except Exception as storage_err:
+                print(sanitize_log(f"[delete_document] Storage delete failed (non-fatal): {storage_err}"))
                 
             return True
         except Exception as e:
-            print(f"Error deleting document: {e}")
+            print(sanitize_log(f"Error deleting document: {e}"))
             raise e
 
     async def store_document_summary(self, doc_id: str, summary: str):
@@ -245,12 +258,12 @@ class SupabaseService:
         )
         return result.data
 
-    async def delete_collection(self, collection_id: str):
-        """Deletes a collection. Documents are unlinked (collection_id set to null)."""
-        # Unlink documents first
-        self.client.table("documents").update({"collection_id": None}).eq("collection_id", collection_id).execute()
-        # Delete the collection
-        self.client.table("collections").delete().eq("id", collection_id).execute()
+    async def delete_collection(self, collection_id: str, user_id: str):
+        """Deletes a collection. Documents are unlinked, scoped to user."""
+        # Unlink documents first (ensure we only touch documents belonging to this user)
+        self.client.table("documents").update({"collection_id": None}).eq("collection_id", collection_id).eq("user_id", user_id).execute()
+        # Delete the collection (ensure we only delete the user's own collection)
+        self.client.table("collections").delete().eq("id", collection_id).eq("user_id", user_id).execute()
 
     async def assign_document_to_collection(self, doc_id: str, collection_id: str, user_id: str):
         """Assigns (or unassigns) a document to a collection, scoped to the user."""

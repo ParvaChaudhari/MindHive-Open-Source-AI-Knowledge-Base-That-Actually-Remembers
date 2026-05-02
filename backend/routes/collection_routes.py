@@ -5,12 +5,17 @@ from typing import Optional
 from services.supabase_service import SupabaseService
 from services.embedding_service import EmbeddingService
 from services.generation_service import GenerationService
+from services.security_utils import check_rate_limit
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
-supabase_service = SupabaseService()
 embedding_service = EmbeddingService()
 generation_service = GenerationService()
+
+# Dependency to get an authenticated Supabase service
+async def get_supabase(auth=Depends(get_current_user)):
+    user, token = auth
+    return SupabaseService(token=token)
 
 
 # ── Request / Response models ──────────────────────────────────────────────────
@@ -29,78 +34,86 @@ class AddDocumentRequest(BaseModel):
 # ── Collection CRUD ────────────────────────────────────────────────────────────
 
 @router.post("/")
-async def create_collection(body: CreateCollectionRequest, user=Depends(get_current_user)):
+async def create_collection(body: CreateCollectionRequest, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Creates a new collection."""
-    collection = await supabase_service.create_collection(body.name, user_id=user.id, description=body.description)
+    user, token = auth
+    collection = await sb.create_collection(body.name, user_id=user.id, description=body.description)
     return {"collection": collection, "message": "Collection created successfully."}
 
 
 @router.get("/")
-async def list_collections(user=Depends(get_current_user)):
+async def list_collections(auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Returns all collections with their document counts."""
-    collections = await supabase_service.list_collections(user_id=user.id)
+    user, token = auth
+    collections = await sb.list_collections(user_id=user.id)
     return {"collections": collections}
 
 
 @router.get("/{collection_id}")
-async def get_collection(collection_id: str, user=Depends(get_current_user)):
+async def get_collection(collection_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Returns a single collection and its documents."""
-    collection = await supabase_service.get_collection(collection_id, user_id=user.id)
+    user, token = auth
+    collection = await sb.get_collection(collection_id, user_id=user.id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found.")
-    documents = await supabase_service.list_documents_in_collection(collection_id, user_id=user.id)
+    documents = await sb.list_documents_in_collection(collection_id, user_id=user.id)
     return {"collection": collection, "documents": documents}
 
 
 @router.delete("/{collection_id}")
-async def delete_collection(collection_id: str, user=Depends(get_current_user)):
+async def delete_collection(collection_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Deletes a collection (documents are unlinked, not deleted)."""
-    collection = await supabase_service.get_collection(collection_id, user_id=user.id)
+    user, token = auth
+    collection = await sb.get_collection(collection_id, user_id=user.id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found.")
-    await supabase_service.delete_collection(collection_id)
+    await sb.delete_collection(collection_id, user_id=user.id)
     return {"message": "Collection deleted. Associated documents have been unlinked."}
 
 
 @router.post("/{collection_id}/documents")
-async def add_document_to_collection(collection_id: str, body: AddDocumentRequest, user=Depends(get_current_user)):
+async def add_document_to_collection(collection_id: str, body: AddDocumentRequest, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Adds an existing document to a collection."""
-    collection = await supabase_service.get_collection(collection_id, user_id=user.id)
+    user, token = auth
+    collection = await sb.get_collection(collection_id, user_id=user.id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found.")
  
-    doc = await supabase_service.get_document(body.document_id, user_id=user.id)
+    doc = await sb.get_document(body.document_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
  
-    await supabase_service.assign_document_to_collection(body.document_id, collection_id, user_id=user.id)
+    await sb.assign_document_to_collection(body.document_id, collection_id, user_id=user.id)
     return {"message": f"Document '{doc['name']}' added to collection '{collection['name']}'."}
 
 
 @router.delete("/{collection_id}/documents/{doc_id}")
-async def remove_document_from_collection(collection_id: str, doc_id: str, user=Depends(get_current_user)):
+async def remove_document_from_collection(collection_id: str, doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Removes a document from a collection (unlinks it, does not delete the document)."""
-    collection = await supabase_service.get_collection(collection_id, user_id=user.id)
+    user, token = auth
+    collection = await sb.get_collection(collection_id, user_id=user.id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found.")
 
-    await supabase_service.assign_document_to_collection(doc_id, None, user_id=user.id)
+    await sb.assign_document_to_collection(doc_id, None, user_id=user.id)
     return {"message": "Document removed from collection."}
 
 
 # ── Cross-document Query ───────────────────────────────────────────────────────
 
 @router.post("/{collection_id}/query")
-async def query_collection(collection_id: str, body: CollectionQueryRequest, user=Depends(get_current_user)):
+async def query_collection(collection_id: str, body: CollectionQueryRequest, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """
     RAG across ALL documents in a collection.
     """
-    collection = await supabase_service.get_collection(collection_id, user_id=user.id)
+    user, token = auth
+    check_rate_limit(user.id)
+    collection = await sb.get_collection(collection_id, user_id=user.id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found.")
 
     # Make sure there are ready documents in the collection
-    documents = await supabase_service.list_documents_in_collection(collection_id, user_id=user.id)
+    documents = await sb.list_documents_in_collection(collection_id, user_id=user.id)
     ready_docs = [d for d in documents if d["status"] == "ready"]
     if not ready_docs:
         raise HTTPException(
@@ -112,7 +125,7 @@ async def query_collection(collection_id: str, body: CollectionQueryRequest, use
     query_embedding = await embedding_service.generate_query_embedding(body.question)
 
     # 2. Similarity search across ALL docs in the collection
-    relevant_chunks = await supabase_service.match_chunks_in_collection(
+    relevant_chunks = await sb.match_chunks_in_collection(
         collection_id=collection_id,
         query_embedding=query_embedding,
         match_count=10
@@ -148,13 +161,15 @@ async def query_collection(collection_id: str, body: CollectionQueryRequest, use
     }
 
 @router.get("/{collection_id}/summary")
-async def summarize_collection(collection_id: str, user=Depends(get_current_user)):
+async def summarize_collection(collection_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Generates a high-level AI summary of all documents in the collection."""
-    collection = await supabase_service.get_collection(collection_id, user_id=user.id)
+    user, token = auth
+    check_rate_limit(user.id)
+    collection = await sb.get_collection(collection_id, user_id=user.id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found.")
  
-    documents = await supabase_service.list_documents_in_collection(collection_id, user_id=user.id)
+    documents = await sb.list_documents_in_collection(collection_id, user_id=user.id)
     ready_docs = [d for d in documents if d["status"] == "ready"]
     if not ready_docs:
         raise HTTPException(status_code=400, detail="No ready documents in collection.")
@@ -165,7 +180,7 @@ async def summarize_collection(collection_id: str, user=Depends(get_current_user
     doc_names = [d["name"] for d in ready_docs]
     
     for doc in ready_docs[:5]:
-        chunks = await supabase_service.get_top_chunks(doc["id"], limit=5)
+        chunks = await sb.get_top_chunks(doc["id"], limit=5)
         all_context.extend(chunks)
 
     if not all_context:

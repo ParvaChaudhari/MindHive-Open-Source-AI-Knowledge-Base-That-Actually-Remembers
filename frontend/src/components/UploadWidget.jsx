@@ -191,7 +191,7 @@ export default function UploadWidget({ collectionId = null, onSuccess, onClose, 
             dragOver ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline bg-surface-container-low/30'
           }`}
         >
-          <input ref={inputRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files[0])} accept=".pdf,.docx,.txt" />
+          <input ref={inputRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files[0])} accept=".pdf" />
           
           <div className={`w-14 h-14 rounded-full bg-primary-fixed flex items-center justify-center mb-5 transition-transform duration-300 ${dragOver ? 'scale-125' : ''}`}>
             <span className="material-symbols-outlined text-primary text-2xl">
@@ -209,7 +209,7 @@ export default function UploadWidget({ collectionId = null, onSuccess, onClose, 
               <h4 className="font-headline-md text-headline-md mb-1 text-center">
                 {dragOver ? 'Drop to upload' : 'Drop files here or click to browse'}
               </h4>
-              <p className="text-on-surface-variant font-body-md mb-6">Supports .pdf, .docx, and .txt up to 3 MB</p>
+              <p className="text-on-surface-variant font-body-md mb-6">Supports .pdf documents up to 3 MB</p>
             </>
           )}
         </div>

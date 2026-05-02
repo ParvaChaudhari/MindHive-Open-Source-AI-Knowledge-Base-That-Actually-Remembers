@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { agentChat } from '../api';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 
 export default function QueenBee() {
   const [isOpen, setIsOpen] = useState(false);
@@ -153,7 +154,7 @@ export default function QueenBee() {
                   </div>
                 )}
                 <div 
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 font-medium ${
                     msg.role === 'user' 
                       ? 'bg-primary text-on-primary rounded-tr-sm' 
                       : 'bg-white border border-outline-variant text-on-surface rounded-tl-sm prose prose-sm prose-p:my-1'
@@ -162,7 +163,7 @@ export default function QueenBee() {
                   {msg.role === 'user' ? (
                     <p className="text-sm">{msg.content}</p>
                   ) : (
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{msg.content}</ReactMarkdown>
                   )}
                 </div>
               </div>

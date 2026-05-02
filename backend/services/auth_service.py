@@ -11,14 +11,14 @@ supabase: Client = create_client(url, key)
 security = HTTPBearer()
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verifies the Supabase JWT and returns the user object."""
+    """Verifies the Supabase JWT and returns the user object and token."""
     token = credentials.credentials
     try:
         # Verify the token with Supabase
         user_res = supabase.auth.get_user(token)
         if not user_res.user:
             raise HTTPException(status_code=401, detail="Invalid authentication token")
-        return user_res.user
+        return user_res.user, token
     except Exception as e:
         print(f"Auth error: {e}")
         raise HTTPException(status_code=401, detail="Could not validate credentials")

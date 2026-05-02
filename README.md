@@ -17,8 +17,21 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 - **Document summaries** — Auto-generated TL;DRs for any document or collection
 - **Flashcard generation** — Generate Q&A study cards from any document
 - **Rename & manage** — Rename documents and manage collection membership
-- **Auth** — Supabase Auth with Row Level Security so each user only sees their own data
+- **Auth & RLS** — Supabase Auth with strict PostgreSQL Row Level Security
 - **Export** — Download chat conversations as Markdown
+- **Queen Bee Agent** — Persistent AI assistant managing collections and learning history (Powered by Llama 3.3 Nemotron)
+
+---
+
+## Security & Production Hardening
+
+Built with production readiness in mind, showcasing robust security practices:
+- **Data Isolation:** Strict PostgreSQL Row Level Security (RLS) policies ensure users can only access and modify their own documents and collections.
+- **XSS Protection:** Frontend sanitization using `rehype-sanitize` prevents Markdown-based Cross-Site Scripting attacks.
+- **Rate Limiting:** In-memory sliding window rate limiter protects AI endpoints from abuse and quota exhaustion.
+- **SSRF Prevention:** Strict URL validation and local IP blocking for the web ingestion pipeline.
+- **Payload Validation:** Enforced file size limits, PDF magic-byte verification, and strict Pydantic models for request bodies.
+- **Log Sanitization:** Automated redaction of sensitive environment variables (API keys, DB credentials) from backend server logs.
 
 ---
 
@@ -30,7 +43,7 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 | **Backend** | FastAPI, Uvicorn, Python 3.11+ |
 | **Database** | Supabase (PostgreSQL + pgvector) |
 | **Storage** | Supabase Storage (PDFs) |
-| **AI** | Google Gemini API (`gemini-2.5-flash`, `text-embedding-004`) |
+| **AI** | Google Gemini API (`gemini-2.5-flash`, `text-embedding-004`), NVIDIA NIM (`llama-3.3-nemotron-super-49b-v1.5`) |
 | **Auth** | Supabase Auth + JWT |
 
 ---
@@ -54,6 +67,8 @@ MindHive/
 │       ├── pdf_service.py       # PyMuPDF extraction + LangChain chunking
 │       ├── scraper_service.py   # YouTube transcript + web page scraping
 │       ├── auth_service.py      # JWT validation via Supabase
+│       ├── agent_service.py     # Queen Bee autonomous agent logic
+│       ├── security_utils.py    # Log sanitization and rate limiting
 │       └── upstream_errors.py   # Typed upstream error classes
 │
 ├── frontend/                 # React + Vite application
@@ -76,9 +91,8 @@ MindHive/
 │           ├── Sidebar.jsx
 │           ├── UploadWidget.jsx
 │           ├── FlashcardsModal.jsx
-│           └── ProfileDropdown.jsx
-│
-└── mindhive-roadmap.md       # Project roadmap & personal notes
+│           ├── ProfileDropdown.jsx
+│           └── QueenBee.jsx      # Agent floating widget
 ```
 
 ---
@@ -150,6 +164,7 @@ npm run dev
 | `SUPABASE_URL` | Your Supabase project URL | Project Settings → API |
 | `SUPABASE_SERVICE_KEY` | Service role key (secret!) | Project Settings → API |
 | `GEMINI_API_KEY` | Google Gemini API key | [aistudio.google.com](https://aistudio.google.com) |
+| `NVIDIA_API_KEY` | NVIDIA NIM API key (for Agent) | build.nvidia.com |
 
 #### `frontend/.env`
 
@@ -262,14 +277,10 @@ $$;
 | `DELETE` | `/collections/:id/documents/:doc_id` | Remove a document from a collection |
 | `POST` | `/collections/:id/query` | Cross-document RAG query |
 | `GET` | `/collections/:id/summary` | AI summary across all docs in collection |
+| `POST` | `/agent/chat` | Interact with Queen Bee autonomous agent |
 
 ---
 
-## Roadmap
-
-See [mindhive-roadmap.md](./mindhive-roadmap.md) for the full project roadmap and development notes.
-
----
 
 ## License
 

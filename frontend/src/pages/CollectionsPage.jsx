@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import ProfileDropdown from '../components/ProfileDropdown';
 import {
   listCollections,
@@ -247,8 +248,9 @@ function CollectionChatPanel({ collection, documents, onClose }) {
                 </div>
               )}
               <div className={`max-w-[85%] ${msg.role === 'user' ? 'bg-primary text-surface p-4 rounded-xl' : 'p-1'}`}>
-                <div className="prose prose-stone max-w-none">
+                <div className="prose prose-stone max-w-none font-medium text-on-surface">
                   <ReactMarkdown
+                    rehypePlugins={[rehypeSanitize]}
                     components={{
                       p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
                       code: ({ children }) => <code className="bg-stone-200 px-1 rounded font-mono text-sm">{children}</code>,

@@ -6,6 +6,7 @@ import json
 import asyncio
 
 from services.upstream_errors import UpstreamServiceUnavailable, UpstreamDailyQuotaReached
+from services.security_utils import sanitize_log
 
 class GenerationService:
     def __init__(self):
@@ -229,10 +230,9 @@ Flashcards JSON:"""
         )
         
         try:
-            import json
             return json.loads(response.text)
-        except:
-            # Fallback or error handling
+        except Exception as e:
+            print(sanitize_log(f"[generate_flashcards] JSON parse error: {e}"))
             return []
 
     async def summarize_collection(self, context_chunks: List[dict], doc_names: List[str]) -> str:

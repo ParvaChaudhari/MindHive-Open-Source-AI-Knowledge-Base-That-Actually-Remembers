@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import { listDocuments, queryDocument, summarizeDocument, getDocument, getChatHistory } from '../api';
 import ProfileDropdown from '../components/ProfileDropdown';
 
@@ -349,8 +350,9 @@ export default function ChatPage({ onMenuClick }) {
                         ? 'bg-primary text-surface p-4 rounded-xl shadow-sm' 
                         : 'p-1 leading-relaxed'
                     }`}>
-                      <div className="prose prose-stone dark:prose-invert max-w-none">
+                      <div className="prose prose-stone dark:prose-invert max-w-none font-medium text-on-surface">
                         <ReactMarkdown 
+                          rehypePlugins={[rehypeSanitize]}
                           components={{
                             p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
                             code: ({children}) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
