@@ -9,6 +9,7 @@ import ChatPage from './pages/ChatPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import QueenBee from './components/QueenBee';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import { useState } from 'react';
 
 const ProtectedRoute = ({ children }) => {
@@ -31,27 +32,35 @@ function AppContent() {
   return (
     <div className="flex h-screen bg-surface text-on-surface overflow-hidden">
       {user && (
-        <Sidebar 
-          isOpen={sidebarOpen} 
-          onClose={() => setSidebarOpen(false)} 
-          isCollapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        />
+        <ErrorBoundary fallback={<div className="w-64 h-full bg-surface-container-low border-r border-outline-variant p-6">Sidebar Failed to Load</div>}>
+          <Sidebar 
+            isOpen={sidebarOpen} 
+            onClose={() => setSidebarOpen(false)} 
+            isCollapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          />
+        </ErrorBoundary>
       )}
       <main className={`flex-1 overflow-y-auto relative bg-stone-50/50 dark:bg-stone-950/50 transition-all duration-300 ${user ? (sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') : ''}`}>
-        <Routes>
-          <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
-          <Route path="/signup" element={user ? <Navigate to="/" /> : <SignupPage />} />
-          
-          <Route path="/" element={<ProtectedRoute><DashboardPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
-          <Route path="/documents" element={<ProtectedRoute><DocumentsPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
-          <Route path="/collections" element={<ProtectedRoute><CollectionsPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
-          <Route path="/chat" element={<ProtectedRoute><ChatPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
-          
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
+            <Route path="/signup" element={user ? <Navigate to="/" /> : <SignupPage />} />
+            
+            <Route path="/" element={<ProtectedRoute><DashboardPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
+            <Route path="/documents" element={<ProtectedRoute><DocumentsPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
+            <Route path="/collections" element={<ProtectedRoute><CollectionsPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute><ChatPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
+            
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
-      {user && <QueenBee />}
+      {user && (
+        <ErrorBoundary>
+          <QueenBee />
+        </ErrorBoundary>
+      )}
     </div>
   );
 }

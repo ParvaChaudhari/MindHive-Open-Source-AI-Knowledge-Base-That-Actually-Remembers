@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { listDocuments, queryDocument, summarizeDocument, getDocument, getChatHistory } from '../api';
 import ProfileDropdown from '../components/ProfileDropdown';
+import ErrorBoundary from '../components/common/ErrorBoundary';
 
 function LoadingBubble() {
   return (
@@ -34,6 +35,7 @@ export default function ChatPage({ onMenuClick }) {
   const [showDocSidebar, setShowDocSidebar] = useState(false);
   const [isDocSidebarCollapsed, setIsDocSidebarCollapsed] = useState(false);
   const [docBootstrapping, setDocBootstrapping] = useState(false);
+  const [docSearchQuery, setDocSearchQuery] = useState('');
   const bottomRef = useRef();
   const pendingNavigationRef = useRef(null);
   
@@ -44,7 +46,10 @@ export default function ChatPage({ onMenuClick }) {
     queryKey: ['documents'],
     queryFn: listDocuments
   });
-  const docs = (data?.documents || []).filter(d => d.status === 'ready');
+  const allReadyDocs = (data?.documents || []).filter(d => d.status === 'ready');
+  const docs = allReadyDocs.filter(d => 
+    d.name.toLowerCase().includes(docSearchQuery.toLowerCase())
+  );
 
   const { data: directDoc } = useQuery({
     queryKey: ['document', docIdFromUrl],
@@ -228,25 +233,50 @@ export default function ChatPage({ onMenuClick }) {
         </button>
 
         <div className={`flex flex-col h-full overflow-hidden ${isDocSidebarCollapsed ? 'opacity-0 invisible' : 'opacity-100 visible'}`}>
-          <div className="p-6 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
-            <div>
-              <h3 className="font-headline text-headline-md mb-1">Knowledge Base</h3>
-              <p className="text-xs text-outline uppercase tracking-widest font-bold">Your Documents</p>
+          <div className="p-6 border-b border-stone-200 dark:border-stone-800 flex flex-col gap-4 shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-headline text-headline-md mb-1">Knowledge Base</h3>
+                <p className="text-xs text-outline uppercase tracking-widest font-bold">Your Documents</p>
+              </div>
+              <button onClick={() => setShowDocSidebar(false)} className="lg:hidden text-outline">
+                <span className="material-symbols-outlined">close</span>
+              </button>
             </div>
-            <button onClick={() => setShowDocSidebar(false)} className="lg:hidden text-outline">
-              <span className="material-symbols-outlined">close</span>
-            </button>
+            
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+              <input 
+                type="text"
+                placeholder="Search files..."
+                value={docSearchQuery}
+                onChange={(e) => setDocSearchQuery(e.target.value)}
+                className="w-full bg-surface border border-outline-variant rounded-lg pl-9 pr-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none transition-all"
+              />
+              {docSearchQuery && (
+                <button 
+                  onClick={() => setDocSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface"
+                >
+                  <span className="material-symbols-outlined text-xs">close</span>
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-1">
             {docs.length === 0 ? (
               <div className="text-center py-10 px-4">
-                <p className="text-sm text-on-surface-variant mb-4">No indexed documents found.</p>
-                <button 
-                  onClick={() => navigate('/documents')}
-                  className="w-full py-2 bg-primary text-surface rounded-lg font-label-md text-xs hover:opacity-90"
-                >
-                  Upload Document
-                </button>
+                <p className="text-sm text-on-surface-variant mb-4">
+                  {docSearchQuery ? `No matches for "${docSearchQuery}"` : 'No indexed documents found.'}
+                </p>
+                {!docSearchQuery && (
+                  <button 
+                    onClick={() => navigate('/documents')}
+                    className="w-full py-2 bg-primary text-surface rounded-lg font-label-md text-xs hover:opacity-90"
+                  >
+                    Upload Document
+                  </button>
+                )}
               </div>
             ) : (
               docs.map((doc) => (
@@ -339,45 +369,47 @@ export default function ChatPage({ onMenuClick }) {
                 )}
 
                 {!docBootstrapping && messages.map((msg, i) => (
-                  <div key={i} className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {msg.role === 'assistant' && (
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-surface text-sm">hive</span>
+                  <ErrorBoundary key={i} fallback={<div className="p-4 border border-error/20 bg-error/5 rounded-lg text-error text-xs">Failed to render message.</div>}>
+                    <div className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      {msg.role === 'assistant' && (
+                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-surface text-sm">hive</span>
+                        </div>
+                      )}
+                      <div className={`max-w-[80%] ${
+                        msg.role === 'user' 
+                          ? 'bg-primary text-surface p-4 rounded-xl shadow-sm' 
+                          : 'p-1 leading-relaxed'
+                      }`}>
+                        <div className={`prose prose-stone dark:prose-invert max-w-none font-medium ${msg.role === 'user' ? 'text-surface' : 'text-on-surface'}`}>
+                          <ReactMarkdown 
+                            rehypePlugins={[rehypeSanitize]}
+                            components={{
+                              p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
+                              code: ({children}) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                        {msg.sources && msg.sources.length > 0 && (
+                          <div className="mt-6 pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-wrap gap-2">
+                            <p className="w-full text-[10px] uppercase tracking-widest text-outline font-bold mb-1">Citations</p>
+                            {msg.sources.map((s, j) => (
+                              <span key={j} className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-bold rounded hover:bg-secondary/20 cursor-help" title={s.excerpt}>
+                                Page {s.page_number}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div className={`max-w-[80%] ${
-                      msg.role === 'user' 
-                        ? 'bg-primary text-surface p-4 rounded-xl shadow-sm' 
-                        : 'p-1 leading-relaxed'
-                    }`}>
-                      <div className="prose prose-stone dark:prose-invert max-w-none font-medium text-on-surface">
-                        <ReactMarkdown 
-                          rehypePlugins={[rehypeSanitize]}
-                          components={{
-                            p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
-                            code: ({children}) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
-                          }}
-                        >
-                          {msg.content}
-                        </ReactMarkdown>
-                      </div>
-                      {msg.sources && msg.sources.length > 0 && (
-                        <div className="mt-6 pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-wrap gap-2">
-                          <p className="w-full text-[10px] uppercase tracking-widest text-outline font-bold mb-1">Citations</p>
-                          {msg.sources.map((s, j) => (
-                            <span key={j} className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-bold rounded hover:bg-secondary/20 cursor-help" title={s.excerpt}>
-                              Page {s.page_number}
-                            </span>
-                          ))}
+                      {msg.role === 'user' && (
+                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-surface text-sm">person</span>
                         </div>
                       )}
                     </div>
-                    {msg.role === 'user' && (
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-surface text-sm">person</span>
-                      </div>
-                    )}
-                  </div>
+                  </ErrorBoundary>
                 ))}
                 {!docBootstrapping && (loading || summarizing) && <LoadingBubble />}
                 <div ref={bottomRef} />

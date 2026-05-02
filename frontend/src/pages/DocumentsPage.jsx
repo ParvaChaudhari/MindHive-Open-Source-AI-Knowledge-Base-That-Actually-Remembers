@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import UploadWidget from '../components/UploadWidget';
 import FlashcardsModal from '../components/FlashcardsModal';
 import ProfileDropdown from '../components/ProfileDropdown';
+import RenameModal from '../components/modals/RenameModal';
+import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 
 const formatDate = (iso) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -29,6 +31,8 @@ export default function DocumentsPage({ onMenuClick }) {
   const [renameValue, setRenameValue] = useState('');
   const [renaming, setRenaming] = useState(false);
   const [flashcardTarget, setFlashcardTarget] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const navigate = useNavigate();
   const menuRef = useRef();
 
@@ -98,10 +102,20 @@ export default function DocumentsPage({ onMenuClick }) {
     }
   };
 
-  // Filter documents based on search query
+  // Filter documents based on search query (global search)
   const filteredDocs = docs.filter(doc => 
     doc.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedDocs = filteredDocs.slice(startIndex, startIndex + itemsPerPage);
+
+  // Reset to first page when searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -138,7 +152,7 @@ export default function DocumentsPage({ onMenuClick }) {
         </div>
       </header>
 
-      <div className="max-w-[800px] mx-auto px-4 lg:px- gutter py-8 lg:py-stack-lg">
+      <div className="max-w-[800px] mx-auto px-4 lg:px-8 pt-4 lg:pt-6 pb-8 lg:pb-stack-lg">
         {/* Mobile Search - Visible only on small screens */}
         <div className="lg:hidden mb-6">
           <div className="relative w-full">
@@ -196,7 +210,7 @@ export default function DocumentsPage({ onMenuClick }) {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredDocs.map((doc) => (
+            {paginatedDocs.map((doc) => (
               <div
                 key={doc.id}
                 onClick={() => doc.status === 'ready' && navigate(`/chat?doc=${doc.id}`)}
@@ -310,6 +324,44 @@ export default function DocumentsPage({ onMenuClick }) {
                 </div>
               </div>
             ))}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-6">
+                <p className="text-sm text-outline font-body-md">
+                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredDocs.length)} of {filteredDocs.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                  </button>
+                  {[...Array(totalPages)].map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                        currentPage === i + 1
+                          ? 'bg-primary text-surface'
+                          : 'border border-outline-variant hover:bg-surface-container'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -353,30 +405,11 @@ export default function DocumentsPage({ onMenuClick }) {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deletingId && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-6">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-md shadow-2xl p-8">
-            <h3 className="font-headline-md text-headline-md mb-2">Confirm Removal</h3>
-            <p className="text-on-surface-variant font-body-md mb-8">
-              This will permanently remove the document and all its associated vector embeddings from your MindHive. This action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button 
-                onClick={() => setDeletingId(null)}
-                className="px-6 py-2 rounded-lg font-label-md text-on-surface hover:bg-surface-container transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => handleDelete(deletingId)}
-                className="px-6 py-2 bg-error text-white rounded-lg font-label-md hover:opacity-90 transition-opacity"
-              >
-                Delete Permanently
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmationModal
+        deletingId={deletingId}
+        onCancel={() => setDeletingId(null)}
+        onDelete={handleDelete}
+      />
 
       {/* Flashcards Modal */}
       {flashcardTarget && (
@@ -388,49 +421,17 @@ export default function DocumentsPage({ onMenuClick }) {
       )}
 
       {/* Rename Modal */}
-      {renamingTarget && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[70] p-6">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-md shadow-2xl p-8">
-            <h3 className="font-headline-md text-headline-md mb-2">Rename document</h3>
-            <p className="text-on-surface-variant font-body-md mb-6">
-              Choose a new name for <span className="font-semibold text-on-surface">{renamingTarget.name}</span>.
-            </p>
-            <input
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              placeholder="New document name"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleRename();
-                if (e.key === 'Escape') {
-                  setRenamingTarget(null);
-                  setRenameValue('');
-                }
-              }}
-            />
-            <div className="flex gap-3 justify-end mt-6">
-              <button
-                onClick={() => {
-                  setRenamingTarget(null);
-                  setRenameValue('');
-                }}
-                className="px-6 py-2 rounded-lg font-label-md text-on-surface hover:bg-surface-container transition-colors"
-                disabled={renaming}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRename}
-                className="px-6 py-2 bg-primary text-surface rounded-lg font-label-md hover:bg-stone-800 transition-colors disabled:opacity-60"
-                disabled={renaming}
-              >
-                {renaming ? 'Renaming…' : 'Rename'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RenameModal
+        renamingTarget={renamingTarget}
+        renameValue={renameValue}
+        setRenameValue={setRenameValue}
+        renaming={renaming}
+        onClose={() => {
+          setRenamingTarget(null);
+          setRenameValue('');
+        }}
+        onRename={handleRename}
+      />
     </main>
   );
 }

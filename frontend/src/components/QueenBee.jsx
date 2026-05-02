@@ -8,6 +8,8 @@ export default function QueenBee() {
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('Thinking...');
+  const [showWaitWarning, setShowWaitWarning] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 360, height: 500 });
   const isResizing = useRef(false);
   const messagesEndRef = useRef(null);
@@ -31,6 +33,24 @@ export default function QueenBee() {
     checkHeight(); // Initial check
     return () => window.removeEventListener('resize', checkHeight);
   }, [dimensions.height]);
+
+  useEffect(() => {
+    let warningTimeout;
+
+    if (isLoading) {
+      setShowWaitWarning(false);
+      // Show warning after 10s
+      warningTimeout = setTimeout(() => {
+        setShowWaitWarning(true);
+      }, 10000);
+    } else {
+      clearTimeout(warningTimeout);
+    }
+
+    return () => {
+      clearTimeout(warningTimeout);
+    };
+  }, [isLoading]);
 
   const startResizing = (e) => {
     e.preventDefault();
@@ -70,6 +90,20 @@ export default function QueenBee() {
     const newHistory = [...history, userMessage];
     setHistory(newHistory);
     setInput('');
+
+    // Intent detection for status message
+    const lowerText = text.toLowerCase();
+    const isImplementationTask = 
+      lowerText.includes('create') || 
+      lowerText.includes('add') || 
+      lowerText.includes('collection') || 
+      lowerText.includes('ingest') || 
+      lowerText.includes('url') || 
+      lowerText.includes('http') ||
+      lowerText.includes('youtube') ||
+      lowerText.includes('web');
+
+    setStatusMessage(isImplementationTask ? 'Implementing...' : 'Thinking...');
     setIsLoading(true);
 
     try {
@@ -154,7 +188,7 @@ export default function QueenBee() {
                   </div>
                 )}
                 <div 
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 font-medium ${
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 font-medium break-words overflow-hidden ${
                     msg.role === 'user' 
                       ? 'bg-primary text-on-primary rounded-tr-sm' 
                       : 'bg-white border border-outline-variant text-on-surface rounded-tl-sm prose prose-sm prose-p:my-1'
@@ -170,16 +204,22 @@ export default function QueenBee() {
             ))}
 
             {isLoading && (
-              <div className="flex justify-start items-center gap-2">
-                <div className="w-8 h-8 rounded-full border border-primary/10 overflow-hidden flex-shrink-0">
+              <div className="flex justify-start items-start gap-2">
+                <div className="w-8 h-8 rounded-full border border-primary/10 overflow-hidden flex-shrink-0 mt-1">
                   <img src="/queen-bee.png" alt="Bee" className="w-full h-full object-cover" />
                 </div>
-                <div className="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2">
-                  <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce"></span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                <div className="flex flex-col gap-1 max-w-[80%]">
+                  <div className="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2 flex items-center gap-3 shadow-sm w-fit">
+                    <div className="flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-primary text-[15px] animate-spin">progress_activity</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-primary whitespace-nowrap">{statusMessage}</p>
                   </div>
+                  {showWaitWarning && (
+                    <p className="text-[10px] text-outline italic px-2 animate-in fade-in slide-in-from-top-1 duration-500">
+                      Taking a bit longer, please be patient...
+                    </p>
+                  )}
                 </div>
               </div>
             )}

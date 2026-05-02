@@ -1,10 +1,11 @@
 import { supabase } from './supabaseClient';
+import { Document, Collection, Message, Source } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
-const getHeaders = async (isMultipart = false) => {
+const getHeaders = async (isMultipart = false): Promise<Record<string, string>> => {
   const { data: { session } } = await supabase.auth.getSession();
-  const headers = {};
+  const headers: Record<string, string> = {};
   if (!isMultipart) {
     headers['Content-Type'] = 'application/json';
   }
@@ -14,7 +15,7 @@ const getHeaders = async (isMultipart = false) => {
   return headers;
 };
 
-export const uploadDocument = async (file, collectionId = null) => {
+export const uploadDocument = async (file: File, collectionId: string | null = null): Promise<any> => {
   const formData = new FormData();
   formData.append('file', file);
   if (collectionId) formData.append('collection_id', collectionId);
@@ -29,21 +30,21 @@ export const uploadDocument = async (file, collectionId = null) => {
   return res.json();
 };
 
-export const listDocuments = async () => {
+export const listDocuments = async (): Promise<{ documents: Document[] }> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/`, { headers });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
 
-export const getDocument = async (id) => {
+export const getDocument = async (id: string): Promise<Document> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/${id}`, { headers });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
 
-export const queryDocument = async (id, question) => {
+export const queryDocument = async (id: string, question: string): Promise<{ answer: string; sources: Source[] }> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/${id}/query`, {
     method: 'POST',
@@ -54,14 +55,14 @@ export const queryDocument = async (id, question) => {
   return res.json();
 };
 
-export const summarizeDocument = async (id) => {
+export const summarizeDocument = async (id: string): Promise<{ summary: string }> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/${id}/summary`, { headers });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
 
-export const deleteDocument = async (id) => {
+export const deleteDocument = async (id: string): Promise<any> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/${id}`, { 
     method: 'DELETE',
@@ -71,7 +72,7 @@ export const deleteDocument = async (id) => {
   return res.json();
 };
 
-export const renameDocument = async (id, name) => {
+export const renameDocument = async (id: string, name: string): Promise<Document> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/${id}`, {
     method: 'PATCH',
@@ -82,7 +83,7 @@ export const renameDocument = async (id, name) => {
   return res.json();
 };
 
-export const ingestYoutube = async (url, collectionId = null) => {
+export const ingestYoutube = async (url: string, collectionId: string | null = null): Promise<any> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/youtube`, {
     method: 'POST',
@@ -93,7 +94,7 @@ export const ingestYoutube = async (url, collectionId = null) => {
   return res.json();
 };
 
-export const ingestWeb = async (url, collectionId = null) => {
+export const ingestWeb = async (url: string, collectionId: string | null = null): Promise<any> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/web`, {
     method: 'POST',
@@ -104,7 +105,7 @@ export const ingestWeb = async (url, collectionId = null) => {
   return res.json();
 };
 
-export const generateFlashcards = async (id) => {
+export const generateFlashcards = async (id: string): Promise<any> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/${id}/flashcards`, { headers });
   if (!res.ok) throw new Error(await res.text());
@@ -113,14 +114,14 @@ export const generateFlashcards = async (id) => {
 
 // ── Collections API ────────────────────────────────────────────────────────────
 
-export const listCollections = async () => {
+export const listCollections = async (): Promise<{ collections: Collection[] }> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/collections/`, { headers });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
 
-export const createCollection = async (name, description = '') => {
+export const createCollection = async (name: string, description: string = ''): Promise<Collection> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/collections/`, {
     method: 'POST',
@@ -131,14 +132,14 @@ export const createCollection = async (name, description = '') => {
   return res.json();
 };
 
-export const getCollection = async (id) => {
+export const getCollection = async (id: string): Promise<Collection & { documents: Document[] }> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/collections/${id}`, { headers });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
 
-export const deleteCollection = async (id) => {
+export const deleteCollection = async (id: string): Promise<any> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/collections/${id}`, { 
     method: 'DELETE',
@@ -148,7 +149,7 @@ export const deleteCollection = async (id) => {
   return res.json();
 };
 
-export const addDocumentToCollection = async (collectionId, documentId) => {
+export const addDocumentToCollection = async (collectionId: string, documentId: string): Promise<any> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/collections/${collectionId}/documents`, {
     method: 'POST',
@@ -159,7 +160,7 @@ export const addDocumentToCollection = async (collectionId, documentId) => {
   return res.json();
 };
 
-export const removeDocumentFromCollection = async (collectionId, docId) => {
+export const removeDocumentFromCollection = async (collectionId: string, docId: string): Promise<any> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/collections/${collectionId}/documents/${docId}`, {
     method: 'DELETE',
@@ -169,7 +170,7 @@ export const removeDocumentFromCollection = async (collectionId, docId) => {
   return res.json();
 };
 
-export const queryCollection = async (collectionId, question) => {
+export const queryCollection = async (collectionId: string, question: string): Promise<{ answer: string; sources: Source[]; documents_searched: number }> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/collections/${collectionId}/query`, {
     method: 'POST',
@@ -180,21 +181,21 @@ export const queryCollection = async (collectionId, question) => {
   return res.json();
 };
 
-export const summarizeCollection = async (collectionId) => {
+export const summarizeCollection = async (collectionId: string): Promise<{ summary: string }> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/collections/${collectionId}/summary`, { headers });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
 
-export const getChatHistory = async (docId) => {
+export const getChatHistory = async (docId: string): Promise<{ chats: { question: string; answer: string }[] }> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/documents/${docId}/chats`, { headers });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
 
-export const agentChat = async (message, history = []) => {
+export const agentChat = async (message: string, history: any[] = []): Promise<any> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/agent/chat`, {
     method: 'POST',
