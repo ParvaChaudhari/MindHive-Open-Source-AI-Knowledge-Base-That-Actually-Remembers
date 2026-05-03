@@ -58,14 +58,23 @@ async def query_document(doc_id: str, body: QueryRequest, auth=Depends(get_curre
     # 4. Save to chat history
     await chat_service.save_message(doc_id, user.id, body.question, answer)
 
-    # 5. Return answer + citations
+    # 5. Build deduplicated citations
+    sources = []
+    seen = set()
+    for c in relevant_chunks:
+        if c["page_number"] not in seen:
+            seen.add(c["page_number"])
+            sources.append({
+                "page_number": c["page_number"],
+                "excerpt": c["content"][:200] + "..."
+            })
+            if len(sources) >= 3:
+                break
+
     return {
         "question": body.question,
         "answer": answer,
-        "sources": [
-            {"page_number": c["page_number"], "excerpt": c["content"][:200] + "..."}
-            for c in relevant_chunks
-        ]
+        "sources": sources
     }
 
 @router.get("/{doc_id}/summary", dependencies=[Depends(RateLimiter(times=15, seconds=60))])

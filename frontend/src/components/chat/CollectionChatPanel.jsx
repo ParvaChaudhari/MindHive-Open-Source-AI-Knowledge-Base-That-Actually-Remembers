@@ -104,13 +104,29 @@ export default function CollectionChatPanel({ collection, documents, onClose }) 
                       <p className="text-[10px] uppercase tracking-widest text-outline font-bold">
                         Sources — {msg.documentsSearched} document(s) searched
                       </p>
-                      {msg.sources.map((s, j) => (
-                        <div key={j} className="flex items-start gap-2 text-xs">
-                          <span className="material-symbols-outlined text-secondary text-sm shrink-0 mt-0.5">article</span>
-                          <div>
-                            <span className="font-bold text-secondary">{s.document_name}</span>
-                            <span className="text-outline"> · Page {s.page_number}</span>
-                            <p className="text-on-surface-variant mt-0.5 line-clamp-2">{s.excerpt}</p>
+                      {Object.entries(
+                        msg.sources.reduce((acc, s) => {
+                          if (!acc[s.document_name]) acc[s.document_name] = [];
+                          acc[s.document_name].push(s);
+                          return acc;
+                        }, {})
+                      ).map(([docName, docSources], j) => (
+                        <div key={j} className="mb-3 last:mb-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="material-symbols-outlined text-secondary text-sm">article</span>
+                            <span className="font-bold text-secondary">{docName}</span>
+                          </div>
+                          <div className="pl-6 space-y-2">
+                            {docSources.map((s, k) => (
+                              <div key={k} className="text-xs border-l-2 border-outline-variant pl-2">
+                                {s.page_number ? (
+                                  <span className="font-bold text-outline">Page {s.page_number}: </span>
+                                ) : (
+                                  <span className="font-bold text-outline">Excerpt: </span>
+                                )}
+                                <span className="text-on-surface-variant line-clamp-2 inline">{s.excerpt}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       ))}
