@@ -4,6 +4,7 @@ import ProfileDropdown from '../components/ProfileDropdown';
 import CreateCollectionModal from '../components/modals/CreateCollectionModal';
 import ManageDocumentsModal from '../components/modals/ManageDocumentsModal';
 import CollectionChatPanel from '../components/chat/CollectionChatPanel';
+import { CollectionSkeleton } from '../components/common/Skeleton';
 import {
   listCollections,
   deleteCollection,
@@ -132,9 +133,10 @@ export default function CollectionsPage({ onMenuClick }) {
 
         {/* Content */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <span className="material-symbols-outlined text-4xl text-outline animate-spin">sync</span>
-            <p className="mt-4 text-outline font-body-md">Loading collections...</p>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <CollectionSkeleton key={i} />
+            ))}
           </div>
         ) : collections.length === 0 ? (
           <div className="text-center py-20 border-2 border-dashed border-outline-variant rounded-2xl bg-surface-container-low">

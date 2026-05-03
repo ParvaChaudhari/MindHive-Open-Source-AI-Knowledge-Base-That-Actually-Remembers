@@ -25,13 +25,20 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 
 ## Security & Production Hardening
 
-Built with production readiness in mind, showcasing robust security practices:
-- **Data Isolation:** Strict PostgreSQL Row Level Security (RLS) policies ensure users can only access and modify their own documents and collections.
-- **XSS Protection:** Frontend sanitization using `rehype-sanitize` prevents Markdown-based Cross-Site Scripting attacks.
-- **Rate Limiting:** In-memory sliding window rate limiter protects AI endpoints from abuse and quota exhaustion.
+- **Global Exception Handling:** Centralized middleware handles all upstream AI and database errors, ensuring consistent, secure, and user-friendly JSON responses across the entire API.
+- **Distributed Rate Limiting:** Integrated **Redis** + `fastapi-limiter` to enforce global rate limits across multiple server instances, replacing fragile in-memory tracking.
 - **SSRF Prevention:** Strict URL validation and local IP blocking for the web ingestion pipeline.
 - **Payload Validation:** Enforced file size limits, PDF magic-byte verification, and strict Pydantic models for request bodies.
 - **Log Sanitization:** Automated redaction of sensitive environment variables (API keys, DB credentials) from backend server logs.
+- **Containerization:** Fully Dockerized architecture (Frontend, Backend, Redis) for seamless, predictable deployment and environment consistency.
+
+---
+
+## Performance & Optimization
+
+- **Chat List Virtualization:** Optimized chat rendering using `@tanstack/react-virtual`. Even conversations with thousands of messages remain lag-free by only rendering items currently in the viewport.
+- **Skeleton Loaders:** Replaced generic spinning icons with pulsating content placeholders, significantly reducing perceived wait times and improving layout stability.
+- **Modular Component Architecture:** Heavily refactored frontend code into single-responsibility components and specific feature modules for better maintainability and faster build times.
 
 ---
 
@@ -39,11 +46,13 @@ Built with production readiness in mind, showcasing robust security practices:
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 19, Vite, TailwindCSS v4, React Query, React Router |
-| **Backend** | FastAPI, Uvicorn, Python 3.11+ |
+| **Frontend** | React 19, Vite, TailwindCSS v4, React Query, react-virtual |
+| **Backend** | FastAPI, Uvicorn, Python 3.11+, fastapi-limiter |
 | **Database** | Supabase (PostgreSQL + pgvector) |
+| **Caching/Security**| **Redis** (Distributed Rate Limiting) |
+| **DevOps** | **Docker**, Docker Compose, GitHub Actions (CI/CD) |
 | **Storage** | Supabase Storage (PDFs) |
-| **AI** | Google Gemini API (`gemini-2.5-flash`, `text-embedding-004`), NVIDIA NIM (`llama-3.3-nemotron-super-49b-v1.5`) |
+| **AI** | Google Gemini API (`gemini-2.5-flash`), NVIDIA NIM (`llama-3.3-nemotron`) |
 | **Auth** | Supabase Auth + JWT |
 
 ---
@@ -109,8 +118,24 @@ MindHive/
   - A `pdfs` storage bucket
   - Auth enabled
 - A [Google Gemini API key](https://aistudio.google.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Recommended)
 
 ---
+
+## Quickstart (Docker)
+
+The fastest way to get MindHive running locally is with Docker Compose:
+
+```bash
+# 1. Fill in your API keys in backend/.env and frontend/.env
+# 2. Launch the entire Hive
+docker-compose up --build
+```
+Access the frontend at `http://localhost:5174` and the backend at `http://localhost:8000`.
+
+---
+
+## Manual Setup
 
 ### 1. Backend Setup
 

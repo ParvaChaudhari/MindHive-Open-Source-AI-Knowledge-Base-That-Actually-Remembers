@@ -7,6 +7,7 @@ import { listDocuments, queryDocument, summarizeDocument, getDocument, getChatHi
 import ProfileDropdown from '../components/ProfileDropdown';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 import Typewriter from '../components/common/Typewriter';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 function LoadingBubble() {
   return (
@@ -40,6 +41,13 @@ export default function ChatPage({ onMenuClick }) {
   const bottomRef = useRef();
   const scrollContainerRef = useRef(null);
   const pendingNavigationRef = useRef(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 150,
+    overscan: 5,
+  });
   
   const docIdFromUrl = useMemo(() => searchParams.get('doc'), [searchParams]);
   const autoSummary = useMemo(() => searchParams.get('autosummary') === '1', [searchParams]);
@@ -104,9 +112,11 @@ export default function ChatPage({ onMenuClick }) {
     // 1. User just sent a message (loading state changed to true)
     // 2. We are already at the bottom (typical for new assistant messages)
     if (loading || isAtBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      if (messages.length > 0) {
+        rowVirtualizer.scrollToIndex(messages.length - 1, { behavior: 'smooth' });
+      }
     }
-  }, [messages, loading]);
+  }, [messages, loading, rowVirtualizer]);
 
   const selectDoc = async (doc, docList = docs) => {
     // Update URL to reflect the selected document.
@@ -382,53 +392,77 @@ export default function ChatPage({ onMenuClick }) {
                   </div>
                 )}
 
-                {!docBootstrapping && messages.map((msg, i) => (
-                  <ErrorBoundary key={i} fallback={<div className="p-4 border border-error/20 bg-error/5 rounded-lg text-error text-xs">Failed to render message.</div>}>
-                    <div className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      {msg.role === 'assistant' && (
-                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                          <span className="material-symbols-outlined text-surface text-sm">hive</span>
+                {!docBootstrapping && (
+                  <div
+                    style={{
+                      height: `${rowVirtualizer.getTotalSize()}px`,
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                    {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+                      const msg = messages[virtualItem.index];
+                      return (
+                        <div
+                          key={virtualItem.key}
+                          data-index={virtualItem.index}
+                          ref={rowVirtualizer.measureElement}
+                          className="absolute top-0 left-0 w-full"
+                          style={{
+                            transform: `translateY(${virtualItem.start}px)`,
+                            paddingBottom: '40px', // Matches the space-y-10 effect
+                          }}
+                        >
+                          <ErrorBoundary fallback={<div className="p-4 border border-error/20 bg-error/5 rounded-lg text-error text-xs">Failed to render message.</div>}>
+                            <div className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                              {msg.role === 'assistant' && (
+                                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                  <span className="material-symbols-outlined text-surface text-sm">hive</span>
+                                </div>
+                              )}
+                              <div className={`max-w-[80%] ${
+                                msg.role === 'user' 
+                                  ? 'bg-primary text-surface p-4 rounded-xl shadow-sm' 
+                                  : 'p-1 leading-relaxed'
+                              }`}>
+                                <div className={`prose prose-stone dark:prose-invert max-w-none font-medium ${msg.role === 'user' ? 'text-surface' : 'text-on-surface'}`}>
+                                  {msg.role === 'assistant' && msg.isTyping ? (
+                                    <Typewriter content={msg.content} />
+                                  ) : (
+                                    <ReactMarkdown 
+                                      rehypePlugins={[rehypeSanitize]}
+                                      components={{
+                                        p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
+                                        code: ({children}) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
+                                      }}
+                                    >
+                                      {msg.content}
+                                    </ReactMarkdown>
+                                  )}
+                                </div>
+                                {msg.sources && msg.sources.length > 0 && (
+                                  <div className="mt-6 pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-wrap gap-2">
+                                    <p className="w-full text-[10px] uppercase tracking-widest text-outline font-bold mb-1">Citations</p>
+                                    {msg.sources.map((s, j) => (
+                                      <span key={j} className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-bold rounded hover:bg-secondary/20 cursor-help" title={s.excerpt}>
+                                        Page {s.page_number}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {msg.role === 'user' && (
+                                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                                  <span className="material-symbols-outlined text-surface text-sm">person</span>
+                                </div>
+                              )}
+                            </div>
+                          </ErrorBoundary>
                         </div>
-                      )}
-                      <div className={`max-w-[80%] ${
-                        msg.role === 'user' 
-                          ? 'bg-primary text-surface p-4 rounded-xl shadow-sm' 
-                          : 'p-1 leading-relaxed'
-                      }`}>
-                        <div className={`prose prose-stone dark:prose-invert max-w-none font-medium ${msg.role === 'user' ? 'text-surface' : 'text-on-surface'}`}>
-                          {msg.role === 'assistant' && msg.isTyping ? (
-                            <Typewriter content={msg.content} />
-                          ) : (
-                            <ReactMarkdown 
-                              rehypePlugins={[rehypeSanitize]}
-                              components={{
-                                p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
-                                code: ({children}) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
-                              }}
-                            >
-                              {msg.content}
-                            </ReactMarkdown>
-                          )}
-                        </div>
-                        {msg.sources && msg.sources.length > 0 && (
-                          <div className="mt-6 pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-wrap gap-2">
-                            <p className="w-full text-[10px] uppercase tracking-widest text-outline font-bold mb-1">Citations</p>
-                            {msg.sources.map((s, j) => (
-                              <span key={j} className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-bold rounded hover:bg-secondary/20 cursor-help" title={s.excerpt}>
-                                Page {s.page_number}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      {msg.role === 'user' && (
-                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                          <span className="material-symbols-outlined text-surface text-sm">person</span>
-                        </div>
-                      )}
-                    </div>
-                  </ErrorBoundary>
-                ))}
+                      );
+                    })}
+                  </div>
+                )}
                 {!docBootstrapping && (loading || summarizing) && <LoadingBubble />}
                 <div ref={bottomRef} />
               </div>

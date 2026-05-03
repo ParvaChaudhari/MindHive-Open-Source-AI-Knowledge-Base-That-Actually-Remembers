@@ -7,6 +7,7 @@ import FlashcardsModal from '../components/FlashcardsModal';
 import ProfileDropdown from '../components/ProfileDropdown';
 import RenameModal from '../components/modals/RenameModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
+import { DocumentSkeleton } from '../components/common/Skeleton';
 
 const formatDate = (iso) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -186,9 +187,10 @@ export default function DocumentsPage({ onMenuClick }) {
 
         {/* Document list */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <span className="material-symbols-outlined text-4xl text-outline animate-spin">sync</span>
-            <p className="mt-4 text-outline font-body-md">Loading archive...</p>
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <DocumentSkeleton key={i} />
+            ))}
           </div>
         ) : docs.length === 0 ? (
           <div className="text-center py-20 border-2 border-dashed border-outline-variant rounded-xl bg-surface-container-low">
