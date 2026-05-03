@@ -8,6 +8,7 @@ from services.generation_service import GenerationService
 from services.upstream_errors import UpstreamServiceUnavailable, UpstreamDailyQuotaReached
 from services.auth_service import get_current_user
 from services.security_utils import is_safe_url
+from exceptions import AIServiceError, DatabaseError, MindHiveException, DocumentProcessingError
 from cachetools import TTLCache
 from pydantic import BaseModel
 from fastapi import Depends
@@ -235,8 +236,7 @@ async def upload_document(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[upload_document] Internal error: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred during upload. Please try again.")
+        raise DocumentProcessingError(f"Upload failed: {str(e)}")
 
 @router.get("/")
 async def list_documents(auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
@@ -253,12 +253,8 @@ async def get_document(doc_id: str, auth=Depends(get_current_user), sb: Supabase
 @router.delete("/{doc_id}")
 async def delete_document(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     user, token = auth
-    try:
-        await sb.delete_document(doc_id, user_id=user.id)
-        return {"message": "Document deleted successfully."}
-    except Exception as e:
-        print(f"[delete_document] Internal error: {e}")
-        raise HTTPException(status_code=500, detail="Could not delete document. Please try again.")
+    await sb.delete_document(doc_id, user_id=user.id)
+    return {"message": "Document deleted successfully."}
 
 @router.patch("/{doc_id}")
 async def rename_document(doc_id: str, payload: RenameDocumentRequest, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
@@ -273,9 +269,6 @@ async def rename_document(doc_id: str, payload: RenameDocumentRequest, auth=Depe
         return updated
     except ValueError:
         raise HTTPException(status_code=404, detail="Document not found.")
-    except Exception as e:
-        print(f"[rename_document] Internal error: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred while renaming.")
 
 @router.post("/youtube")
 async def ingest_youtube(request: ExternalUrlRequest, background_tasks: BackgroundTasks, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
@@ -311,11 +304,12 @@ async def ingest_youtube(request: ExternalUrlRequest, background_tasks: Backgrou
             "title": yt_ai["title"],
             "summary": yt_ai["summary"]
         }
+    except (UpstreamServiceUnavailable, UpstreamDailyQuotaReached) as e:
+        raise AIServiceError(str(e))
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ingest_youtube] Internal error: {e}")
-        raise HTTPException(status_code=500, detail="An error occurred while fetching the YouTube transcript.")
+        raise AIServiceError(f"YouTube ingestion failed: {str(e)}")
 
 @router.post("/web")
 async def ingest_web(request: ExternalUrlRequest, background_tasks: BackgroundTasks, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):

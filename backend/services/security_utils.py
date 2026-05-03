@@ -5,9 +5,7 @@ import os
 from cachetools import TTLCache
 from fastapi import HTTPException
 
-# Global rate limit cache: Stores (user_id) -> request_count
-# Tracks up to 1000 users with a 60-second sliding window
-_rate_limit_cache = TTLCache(maxsize=1000, ttl=60)
+
 
 def sanitize_log(message: str) -> str:
     """Redacts sensitive environment variables from log messages."""
@@ -30,18 +28,7 @@ def sanitize_log(message: str) -> str:
             
     return sanitized
 
-def check_rate_limit(user_id: str, limit: int = 15):
-    """
-    Enforces a simple rate limit per user to protect AI quota.
-    Default: 15 requests per minute.
-    """
-    current_count = _rate_limit_cache.get(user_id, 0)
-    if current_count >= limit:
-        raise HTTPException(
-            status_code=429, 
-            detail="Too many requests. Please slow down to protect our AI quota."
-        )
-    _rate_limit_cache[user_id] = current_count + 1
+
 
 def is_safe_url(url: str) -> bool:
     """

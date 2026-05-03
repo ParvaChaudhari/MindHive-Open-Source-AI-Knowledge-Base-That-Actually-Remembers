@@ -11,8 +11,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from routes import document_routes, query_routes, collection_routes, timeline_routes, agent_routes
 from services.security_utils import sanitize_log
+from exceptions import MindHiveException, mindhive_exception_handler, generic_exception_handler
+import redis.asyncio as redis
+from fastapi_limiter import FastAPILimiter
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="MindHive API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize Redis and Limiter
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
+    r = redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+    await FastAPILimiter.init(r)
+    print(f"INFO:     Redis connection established at {redis_url}")
+    
+    yield
+    
+    # Shutdown: Close Redis connection
+    await r.close()
+    print("INFO:     Redis connection closed")
+
+app = FastAPI(title="MindHive API", lifespan=lifespan)
+
+# Register Exception Handlers
+app.add_exception_handler(MindHiveException, mindhive_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
 
 # CORS Middleware
 allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")

@@ -6,7 +6,7 @@ from services.embedding_service import EmbeddingService
 from services.generation_service import GenerationService
 from services.upstream_errors import UpstreamServiceUnavailable, UpstreamDailyQuotaReached
 from services.chat_service import ChatService
-from services.security_utils import check_rate_limit
+from fastapi_limiter.depends import RateLimiter
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -23,11 +23,10 @@ class QueryRequest(BaseModel):
     question: str
 
 
-@router.post("/{doc_id}/query")
+@router.post("/{doc_id}/query", dependencies=[Depends(RateLimiter(times=15, seconds=60))])
 async def query_document(doc_id: str, body: QueryRequest, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """RAG: Find relevant chunks and answer the question using Gemini."""
     user, token = auth
-    check_rate_limit(user.id)
     doc = await sb.get_document(doc_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
@@ -69,7 +68,7 @@ async def query_document(doc_id: str, body: QueryRequest, auth=Depends(get_curre
         ]
     }
 
-@router.get("/{doc_id}/summary")
+@router.get("/{doc_id}/summary", dependencies=[Depends(RateLimiter(times=15, seconds=60))])
 async def summarize_document(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Returns cached summary, or generates + caches one on first request."""
     user, token = auth
@@ -90,7 +89,6 @@ async def summarize_document(doc_id: str, auth=Depends(get_current_user), sb: Su
         }
 
     # ── Cache miss: generate, store, return ──────────────────────────────────
-    check_rate_limit(user.id)
     top_chunks = await sb.get_top_chunks(doc_id, limit=10)
     if not top_chunks:
         raise HTTPException(status_code=404, detail="No content found for this document.")
@@ -112,11 +110,10 @@ async def summarize_document(doc_id: str, auth=Depends(get_current_user), sb: Su
         "cached": False
     }
 
-@router.get("/{doc_id}/flashcards")
+@router.get("/{doc_id}/flashcards", dependencies=[Depends(RateLimiter(times=15, seconds=60))])
 async def generate_flashcards(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Generates AI flashcards for the document."""
     user, token = auth
-    check_rate_limit(user.id)
     doc = await sb.get_document(doc_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=400, detail="Document not found or ready.")
@@ -146,11 +143,10 @@ async def get_chat_history(doc_id: str, auth=Depends(get_current_user), sb: Supa
     history = await chat_service.get_chat_history(doc_id, user.id)
     return {"chats": history}
 
-@router.get("/{doc_id}/chats/summary")
+@router.get("/{doc_id}/chats/summary", dependencies=[Depends(RateLimiter(times=15, seconds=60))])
 async def summarize_chat_history(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Generates an AI summary of the conversation history."""
     user, token = auth
-    check_rate_limit(user.id)
     doc = await sb.get_document(doc_id, user_id=user.id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")

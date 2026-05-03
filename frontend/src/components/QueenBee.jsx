@@ -2,24 +2,30 @@ import { useState, useRef, useEffect } from 'react';
 import { agentChat } from '../api';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
+import Typewriter from './common/Typewriter';
 
 export default function QueenBee() {
   const [isOpen, setIsOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('Thinking...');
+  const [statusMessage, setStatusMessage] = useState('Thinking');
+  const [dots, setDots] = useState('');
   const [showWaitWarning, setShowWaitWarning] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 360, height: 500 });
   const isResizing = useRef(false);
   const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollContainerRef = useRef(null);
 
   useEffect(() => {
-    scrollToBottom();
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+
+    if (isLoading || isAtBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [history, isLoading]);
 
   useEffect(() => {
@@ -33,6 +39,18 @@ export default function QueenBee() {
     checkHeight(); // Initial check
     return () => window.removeEventListener('resize', checkHeight);
   }, [dimensions.height]);
+
+  useEffect(() => {
+    let interval;
+    if (isLoading) {
+      interval = setInterval(() => {
+        setDots(prev => (prev.length < 3 ? prev + '.' : ''));
+      }, 500);
+    } else {
+      setDots('');
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   useEffect(() => {
     let warningTimeout;
@@ -61,12 +79,12 @@ export default function QueenBee() {
 
   const handleMouseMove = (e) => {
     if (!isResizing.current) return;
-    
+
     // The window is pinned bottom-right at (window.innerWidth - 24, window.innerHeight - 24)
     // We are dragging the TOP-LEFT corner.
     const newWidth = window.innerWidth - 24 - e.clientX;
     const newHeight = window.innerHeight - 40 - e.clientY; // 40 is bottom spacing (bottom-6 + mb-4)
-    
+
     // Top bar is approx 64px. We want 20px (0.5cm) gap.
     const maxAllowedHeight = window.innerHeight - 40 - 64 - 20;
 
@@ -93,17 +111,17 @@ export default function QueenBee() {
 
     // Intent detection for status message
     const lowerText = text.toLowerCase();
-    const isImplementationTask = 
-      lowerText.includes('create') || 
-      lowerText.includes('add') || 
-      lowerText.includes('collection') || 
-      lowerText.includes('ingest') || 
-      lowerText.includes('url') || 
+    const isImplementationTask =
+      lowerText.includes('create') ||
+      lowerText.includes('add') ||
+      lowerText.includes('collection') ||
+      lowerText.includes('ingest') ||
+      lowerText.includes('url') ||
       lowerText.includes('http') ||
       lowerText.includes('youtube') ||
       lowerText.includes('web');
 
-    setStatusMessage(isImplementationTask ? 'Implementing...' : 'Thinking...');
+    setStatusMessage(isImplementationTask ? 'Implementing' : 'Thinking');
     setIsLoading(true);
 
     try {
@@ -111,7 +129,11 @@ export default function QueenBee() {
       // however, the backend currently accepts `message` and `history`.
       // Let's pass the previous history.
       const res = await agentChat(text, history);
-      setHistory([...newHistory, { role: 'agent', content: res.response || "Something went wrong. Please try again!" }]);
+      setHistory([...newHistory, {
+        role: 'agent',
+        content: res.response || "Something went wrong. Please try again!",
+        isTyping: true
+      }]);
     } catch (err) {
       setHistory([...newHistory, { role: 'agent', content: `Error: ${err.message}` }]);
     } finally {
@@ -129,12 +151,12 @@ export default function QueenBee() {
     <div className="fixed bottom-6 right-6 z-50">
       {/* Chat Window */}
       {isOpen && (
-        <div 
+        <div
           style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
           className="bg-surface border border-outline-variant rounded-2xl shadow-2xl mb-4 flex flex-col overflow-hidden transition-[transform,opacity] duration-300 transform origin-bottom-right relative"
         >
           {/* Resize Handle (Top-Left) */}
-          <div 
+          <div
             onMouseDown={startResizing}
             className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-50 hover:bg-primary/10 flex items-center justify-center group"
           >
@@ -152,7 +174,7 @@ export default function QueenBee() {
                 <p className="text-xs text-outline">MindHive Agent</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setIsOpen(false)}
               className="text-outline hover:text-on-surface rounded-full p-1"
             >
@@ -161,14 +183,14 @@ export default function QueenBee() {
           </div>
 
           {/* Messages area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50/30">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50/30">
             {history.length === 0 && (
               <div className="text-center text-outline mt-8 space-y-4">
                 <div className="text-4xl">🍯</div>
                 <p className="font-body-md">Hi! I'm Queen Bee. How can I help you manage your hive today?</p>
                 <div className="flex flex-col gap-2 mt-4 px-4">
                   {starters.map((starter, i) => (
-                    <button 
+                    <button
                       key={i}
                       onClick={() => sendMessage(starter)}
                       className="text-sm bg-white border border-outline-variant rounded-full px-3 py-1.5 hover:border-primary hover:text-primary transition-colors text-left"
@@ -187,37 +209,35 @@ export default function QueenBee() {
                     <img src="/queen-bee.png" alt="Bee" className="w-full h-full object-cover" />
                   </div>
                 )}
-                <div 
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 font-medium break-words overflow-hidden ${
-                    msg.role === 'user' 
-                      ? 'bg-primary text-on-primary rounded-tr-sm' 
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 font-medium break-words overflow-hidden ${msg.role === 'user'
+                      ? 'bg-primary text-on-primary rounded-tr-sm'
                       : 'bg-white border border-outline-variant text-on-surface rounded-tl-sm prose prose-sm prose-p:my-1'
-                  }`}
+                    }`}
                 >
                   {msg.role === 'user' ? (
                     <p className="text-sm">{msg.content}</p>
+                  ) : msg.isTyping ? (
+                    <Typewriter content={msg.content} />
                   ) : (
-                  <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{msg.content}</ReactMarkdown>
+                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{msg.content}</ReactMarkdown>
                   )}
                 </div>
               </div>
             ))}
 
             {isLoading && (
-              <div className="flex justify-start items-start gap-2">
+              <div className="flex justify-start items-start gap-2 animate-in fade-in duration-500">
                 <div className="w-8 h-8 rounded-full border border-primary/10 overflow-hidden flex-shrink-0 mt-1">
                   <img src="/queen-bee.png" alt="Bee" className="w-full h-full object-cover" />
                 </div>
-                <div className="flex flex-col gap-1 max-w-[80%]">
-                  <div className="bg-white border border-outline-variant rounded-2xl rounded-tl-sm px-4 py-2 flex items-center gap-3 shadow-sm w-fit">
-                    <div className="flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-primary text-[15px] animate-spin">progress_activity</span>
-                    </div>
-                    <p className="text-[11px] font-bold text-primary whitespace-nowrap">{statusMessage}</p>
-                  </div>
+                <div className="flex flex-col gap-1 max-w-[85%] pt-2.5">
+                  <p className="text-sm text-on-surface px-2">
+                    {statusMessage}{dots}
+                  </p>
                   {showWaitWarning && (
-                    <p className="text-[10px] text-outline italic px-2 animate-in fade-in slide-in-from-top-1 duration-500">
-                      Taking a bit longer, please be patient...
+                    <p className="text-[10px] text-outline italic px-2 animate-in fade-in slide-in-from-top-1 duration-500 leading-tight">
+                      Hang tight! I am using a powerful reasoning model to analyze your knowledge base. Queries can take some time but its worth the wait!
                     </p>
                   )}
                 </div>
@@ -228,7 +248,7 @@ export default function QueenBee() {
 
           {/* Input Area */}
           <div className="p-3 border-t border-outline-variant bg-surface">
-            <form 
+            <form
               onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
               className="flex gap-2"
             >
@@ -240,7 +260,7 @@ export default function QueenBee() {
                 disabled={isLoading}
                 className="flex-1 rounded-full border border-outline-variant px-4 py-2 text-sm focus:outline-none focus:border-primary disabled:opacity-50"
               />
-              <button 
+              <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
                 className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center disabled:opacity-50 hover:bg-primary/90 transition-colors flex-shrink-0"
@@ -263,7 +283,7 @@ export default function QueenBee() {
             {/* Little arrow */}
             <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white border-b border-r border-outline-variant rotate-45"></div>
           </div>
-          
+
           <button
             onClick={() => setIsOpen(true)}
             className="w-16 h-16 bg-primary text-on-primary rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center relative overflow-visible"

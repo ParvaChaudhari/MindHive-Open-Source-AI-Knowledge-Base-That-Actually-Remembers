@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { queryCollection } from '../../api';
 import ErrorBoundary from '../common/ErrorBoundary';
+import Typewriter from '../common/Typewriter';
 
 export default function CollectionChatPanel({ collection, documents, onClose }) {
   const [messages, setMessages] = useState([{
@@ -12,7 +13,19 @@ export default function CollectionChatPanel({ collection, documents, onClose }) 
   }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const bottomRef = { current: null };
+  const bottomRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+
+    if (loading || isAtBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, loading]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -28,6 +41,7 @@ export default function CollectionChatPanel({ collection, documents, onClose }) 
         content: data.answer,
         sources: data.sources,
         documentsSearched: data.documents_searched,
+        isTyping: true,
       }]);
     } catch (e) {
       setMessages(m => [...m, {
@@ -59,7 +73,7 @@ export default function CollectionChatPanel({ collection, documents, onClose }) 
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-6 space-y-8">
           {messages.map((msg, i) => (
             <ErrorBoundary key={i} fallback={<div className="p-4 border border-error/20 bg-error/5 rounded-lg text-error text-xs">Failed to render message.</div>}>
               <div className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -70,15 +84,19 @@ export default function CollectionChatPanel({ collection, documents, onClose }) 
                 )}
                 <div className={`max-w-[85%] ${msg.role === 'user' ? 'bg-primary text-surface p-4 rounded-xl' : 'p-1'}`}>
                   <div className={`prose prose-stone max-w-none font-medium ${msg.role === 'user' ? 'text-surface' : 'text-on-surface'} dark:prose-invert`}>
-                    <ReactMarkdown
-                      rehypePlugins={[rehypeSanitize]}
-                      components={{
-                        p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-                        code: ({ children }) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>,
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
+                    {msg.role === 'assistant' && msg.isTyping ? (
+                      <Typewriter content={msg.content} />
+                    ) : (
+                      <ReactMarkdown
+                        rehypePlugins={[rehypeSanitize]}
+                        components={{
+                          p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                          code: ({ children }) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    )}
                   </div>
 
                   {msg.sources && msg.sources.length > 0 && (
@@ -121,7 +139,7 @@ export default function CollectionChatPanel({ collection, documents, onClose }) 
               </div>
             </div>
           )}
-          <div ref={el => { bottomRef.current = el; }} />
+          <div ref={bottomRef} />
         </div>
 
         {/* Input */}

@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from services.agent_service import AgentService
 from typing import List
 from services.auth_service import get_current_user
-from services.security_utils import check_rate_limit
+from fastapi_limiter.depends import RateLimiter
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -20,10 +20,9 @@ class AgentChatRequest(BaseModel):
     message: str = Field(..., max_length=5000)
     history: List[Message] = Field(default=[], max_items=50)
 
-@router.post("/chat")
+@router.post("/chat", dependencies=[Depends(RateLimiter(times=15, seconds=60))])
 async def agent_chat(body: AgentChatRequest, auth=Depends(get_current_user), asv: AgentService = Depends(get_agent_service)):
     user, token = auth
-    check_rate_limit(user.id)
     # Convert history to format agent expects
     history = [{"role": m.role, "content": m.content} for m in body.history]
     

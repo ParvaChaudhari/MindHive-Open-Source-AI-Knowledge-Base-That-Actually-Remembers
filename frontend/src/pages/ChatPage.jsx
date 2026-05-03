@@ -6,6 +6,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import { listDocuments, queryDocument, summarizeDocument, getDocument, getChatHistory } from '../api';
 import ProfileDropdown from '../components/ProfileDropdown';
 import ErrorBoundary from '../components/common/ErrorBoundary';
+import Typewriter from '../components/common/Typewriter';
 
 function LoadingBubble() {
   return (
@@ -37,6 +38,7 @@ export default function ChatPage({ onMenuClick }) {
   const [docBootstrapping, setDocBootstrapping] = useState(false);
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const bottomRef = useRef();
+  const scrollContainerRef = useRef(null);
   const pendingNavigationRef = useRef(null);
   
   const docIdFromUrl = useMemo(() => searchParams.get('doc'), [searchParams]);
@@ -92,7 +94,18 @@ export default function ChatPage({ onMenuClick }) {
   }, [docIdFromUrl, directDoc, docs, selectedDoc]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Check if user is near bottom (within 150px)
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+
+    // Scroll if:
+    // 1. User just sent a message (loading state changed to true)
+    // 2. We are already at the bottom (typical for new assistant messages)
+    if (loading || isAtBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, loading]);
 
   const selectDoc = async (doc, docList = docs) => {
@@ -147,6 +160,7 @@ export default function ChatPage({ onMenuClick }) {
         role: 'assistant',
         content: data.answer,
         sources: data.sources,
+        isTyping: true,
       }]);
     } catch (e) {
       setMessages((m) => [...m, {
@@ -164,7 +178,7 @@ export default function ChatPage({ onMenuClick }) {
     setMessages((m) => [...m, { role: 'user', content: '📝 Generate a summary of this document', sources: null }]);
     try {
       const data = await summarizeDocument(selectedDoc.id);
-      setMessages((m) => [...m, { role: 'assistant', content: data.summary, sources: null }]);
+      setMessages((m) => [...m, { role: 'assistant', content: data.summary, sources: null, isTyping: true }]);
     } catch {
       setMessages((m) => [...m, { role: 'assistant', content: '❌ Could not generate summary.', sources: null }]);
     }
@@ -354,7 +368,7 @@ export default function ChatPage({ onMenuClick }) {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-8 py-8 space-y-8">
               <div className="max-w-[800px] mx-auto space-y-10">
                 {docBootstrapping && (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -382,15 +396,19 @@ export default function ChatPage({ onMenuClick }) {
                           : 'p-1 leading-relaxed'
                       }`}>
                         <div className={`prose prose-stone dark:prose-invert max-w-none font-medium ${msg.role === 'user' ? 'text-surface' : 'text-on-surface'}`}>
-                          <ReactMarkdown 
-                            rehypePlugins={[rehypeSanitize]}
-                            components={{
-                              p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
-                              code: ({children}) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
-                            }}
-                          >
-                            {msg.content}
-                          </ReactMarkdown>
+                          {msg.role === 'assistant' && msg.isTyping ? (
+                            <Typewriter content={msg.content} />
+                          ) : (
+                            <ReactMarkdown 
+                              rehypePlugins={[rehypeSanitize]}
+                              components={{
+                                p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
+                                code: ({children}) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
+                              }}
+                            >
+                              {msg.content}
+                            </ReactMarkdown>
+                          )}
                         </div>
                         {msg.sources && msg.sources.length > 0 && (
                           <div className="mt-6 pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-wrap gap-2">

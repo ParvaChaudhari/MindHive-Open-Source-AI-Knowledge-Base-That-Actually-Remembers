@@ -5,7 +5,7 @@ from typing import Optional
 from services.supabase_service import SupabaseService
 from services.embedding_service import EmbeddingService
 from services.generation_service import GenerationService
-from services.security_utils import check_rate_limit
+from fastapi_limiter.depends import RateLimiter
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -101,13 +101,12 @@ async def remove_document_from_collection(collection_id: str, doc_id: str, auth=
 
 # ── Cross-document Query ───────────────────────────────────────────────────────
 
-@router.post("/{collection_id}/query")
+@router.post("/{collection_id}/query", dependencies=[Depends(RateLimiter(times=15, seconds=60))])
 async def query_collection(collection_id: str, body: CollectionQueryRequest, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """
     RAG across ALL documents in a collection.
     """
     user, token = auth
-    check_rate_limit(user.id)
     collection = await sb.get_collection(collection_id, user_id=user.id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found.")
@@ -160,11 +159,10 @@ async def query_collection(collection_id: str, body: CollectionQueryRequest, aut
         "documents_searched": len(ready_docs),
     }
 
-@router.get("/{collection_id}/summary")
+@router.get("/{collection_id}/summary", dependencies=[Depends(RateLimiter(times=15, seconds=60))])
 async def summarize_collection(collection_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     """Generates a high-level AI summary of all documents in the collection."""
     user, token = auth
-    check_rate_limit(user.id)
     collection = await sb.get_collection(collection_id, user_id=user.id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found.")
