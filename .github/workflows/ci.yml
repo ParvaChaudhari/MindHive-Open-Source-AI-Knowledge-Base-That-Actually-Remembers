@@ -57,10 +57,17 @@ jobs:
           npm run build
 
   docker-check:
-    name: Docker Build Verification
+    name: Docker Compose Config Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Verify Docker Compose config
+
+      - name: Create stub .env files for config validation
+        run: |
+          # Create placeholder files so docker compose config can parse the file
+          # without needing real secrets. These are never committed.
+          touch backend/.env
+          touch frontend/.env
+
+      - name: Verify Docker Compose config syntax
         run: docker compose config
