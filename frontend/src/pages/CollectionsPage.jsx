@@ -147,12 +147,21 @@ export default function CollectionsPage({ onMenuClick }) {
             <p className="text-on-surface-variant font-body-md mb-8 max-w-sm mx-auto">
               Create your first collection to start querying across multiple documents at once.
             </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-primary text-surface px-8 py-3 rounded-lg font-label-md text-label-md hover:bg-stone-800 transition-colors"
-            >
-              Create First Collection
-            </button>
+            <div className="flex justify-center gap-2">
+              <button
+                onClick={load}
+                className="flex items-center justify-center p-2 border border-outline-variant bg-surface text-on-surface rounded-lg hover:border-primary transition-all"
+                title="Reload collections"
+              >
+                <span className="material-symbols-outlined text-sm">refresh</span>
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-primary text-surface px-8 py-3 rounded-lg font-label-md text-label-md hover:bg-stone-800 transition-colors"
+              >
+                Create First Collection
+              </button>
+            </div>
           </div>
         ) : filteredCollections.length === 0 ? (
           <div className="text-center py-20">
@@ -167,13 +176,22 @@ export default function CollectionsPage({ onMenuClick }) {
               <p className="text-[11px] uppercase tracking-widest font-bold text-outline">
                 {filteredCollections.length} Collection{filteredCollections.length !== 1 ? 's' : ''}
               </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-1.5 px-4 py-2 border border-outline-variant text-on-surface dark:text-stone-50 rounded-lg text-xs font-bold hover:bg-surface-container-low hover:border-primary transition-all"
-              >
-                <span className="material-symbols-outlined text-sm">add</span>
-                New Collection
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={load}
+                  className="flex items-center justify-center p-2 border border-outline-variant text-on-surface dark:text-stone-50 rounded-lg hover:bg-surface-container-low hover:border-primary transition-all"
+                  title="Reload collections"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span>
+                </button>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-outline-variant text-on-surface dark:text-stone-50 rounded-lg text-xs font-bold hover:bg-surface-container-low hover:border-primary transition-all"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  New Collection
+                </button>
+              </div>
             </div>
             {paginatedCollections.map((col) => (
               <div

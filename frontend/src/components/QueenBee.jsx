@@ -184,6 +184,12 @@ export default function QueenBee() {
     }
   };
 
+  const setFinishedTyping = (index) => {
+    setHistory(prev => prev.map((msg, i) => 
+      i === index ? { ...msg, isTyping: false } : msg
+    ));
+  };
+
   const starters = [
     "Show my timeline",
     "Ingest this URL",
@@ -271,7 +277,10 @@ export default function QueenBee() {
                   {msg.role === 'user' ? (
                     <p className="text-sm">{msg.content}</p>
                   ) : msg.isTyping ? (
-                    <Typewriter content={msg.content} />
+                    <Typewriter 
+                      content={msg.content} 
+                      onComplete={() => setFinishedTyping(i)}
+                    />
                   ) : (
                     <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{msg.content}</ReactMarkdown>
                   )}

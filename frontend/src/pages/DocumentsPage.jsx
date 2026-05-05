@@ -176,13 +176,22 @@ export default function DocumentsPage({ onMenuClick }) {
               {docs.length} document{docs.length !== 1 ? 's' : ''} categorized and indexed.
             </p>
           </div>
-          <button
-            onClick={() => setShowUpload(true)}
-            className="bg-primary text-surface px-6 py-2 rounded-lg font-label-md text-label-md hover:bg-stone-800 transition-colors shadow-sm flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-sm">cloud_upload</span>
-            Upload New
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['documents'] })}
+              className="flex items-center justify-center p-2 border border-outline-variant bg-surface text-on-surface rounded-lg hover:border-primary transition-all"
+              title="Reload documents"
+            >
+              <span className="material-symbols-outlined text-sm">refresh</span>
+            </button>
+            <button
+              onClick={() => setShowUpload(true)}
+              className="bg-primary text-surface px-6 py-2 rounded-lg font-label-md text-label-md hover:bg-stone-800 transition-colors shadow-sm flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-sm">cloud_upload</span>
+              Upload New
+            </button>
+          </div>
         </div>
 
         {/* Document list */}

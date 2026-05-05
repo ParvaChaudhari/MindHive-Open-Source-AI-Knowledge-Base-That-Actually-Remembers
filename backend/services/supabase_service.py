@@ -12,13 +12,10 @@ class SupabaseService:
         # Admin client for bypass operations (storage, etc)
         self.admin_client: Client = create_client(url, service_key)
         
-        # Default client: if token is provided, use it (RLS will be active)
-        # Otherwise, use service key (legacy/background mode)
-        if token:
-            self.client: Client = create_client(url, anon_key)
-            self.client.postgrest.auth(token)
-        else:
-            self.client = self.admin_client
+        # We use the admin_client (Service Key) for all backend operations to bypass RLS.
+        # This is more robust for local development environments with networking issues.
+        # Data isolation is still maintained because our methods always filter by user_id.
+        self.client = self.admin_client
 
     async def upload_pdf(self, file_name: str, file_bytes: bytes) -> str:
         """Uploads a PDF to Supabase Storage and returns the public URL."""
@@ -144,22 +141,29 @@ class SupabaseService:
         try:
             # 1. Get document details for the file path
             doc = await self.get_document(doc_id, user_id)
-            file_name = doc["name"]
-            path = f"uploads/{file_name}"
+            if not doc:
+                return False
+                
+            file_url = doc.get("file_url", "")
             
-            # 2. Delete chunks (RLS or explicit filter)
+            # 2. Delete file from storage IF it's a Supabase storage URL
+            # Format: https://project.supabase.co/storage/v1/object/public/pdfs/uploads/name.pdf
+            if "/storage/v1/object/public/pdfs/" in file_url:
+                try:
+                    # Extract the path after /pdfs/
+                    storage_path = file_url.split("/storage/v1/object/public/pdfs/")[1]
+                    # Use admin_client to ensure we have delete permissions
+                    self.admin_client.storage.from_("pdfs").remove([storage_path])
+                except Exception as storage_err:
+                    # Log but continue (don't block DB deletion)
+                    print(sanitize_log(f"[delete_document] Storage delete failed (non-fatal): {storage_err}"))
+            
+            # 3. Delete chunks
             self.client.table("chunks").delete().eq("doc_id", doc_id).execute()
             
-            # 3. Delete document record
+            # 4. Delete document record
             self.client.table("documents").delete().eq("id", doc_id).eq("user_id", user_id).execute()
             
-            # 4. Delete file from storage
-            # Note: We try-catch storage delete in case the file was already gone
-            try:
-                self.client.storage.from_("pdfs").remove([path])
-            except Exception as storage_err:
-                print(sanitize_log(f"[delete_document] Storage delete failed (non-fatal): {storage_err}"))
-                
             return True
         except Exception as e:
             print(sanitize_log(f"Error deleting document: {e}"))

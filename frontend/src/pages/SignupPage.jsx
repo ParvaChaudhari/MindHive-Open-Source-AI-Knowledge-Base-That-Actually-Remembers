@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import HexagonBackground from '../components/common/HexagonBackground';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -31,85 +32,100 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary text-surface rounded-2xl mb-6">
-            <span className="material-symbols-outlined text-3xl">hive</span>
+    <div className="flex flex-col min-h-screen text-on-surface relative bg-transparent">
+      <HexagonBackground />
+      
+      <main className="flex-grow flex items-center justify-center px-gutter py-stack-lg relative z-10">
+        <div className="max-w-[440px] w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+          
+          {/* Brand Logo */}
+          <div className="flex items-center gap-3 mb-stack-lg">
+            <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center shadow-lg shadow-black/5">
+              <span className="material-symbols-outlined text-surface text-2xl">hive</span>
+            </div>
+            <h1 className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">MindHive</h1>
           </div>
-          <h1 className="text-3xl font-headline font-bold mb-2">Create Account</h1>
-          <p className="text-outline text-sm">Start building your private knowledge base</p>
-        </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-8 rounded-3xl shadow-xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-outline mb-2 ml-1">Email Address</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                placeholder="you@example.com"
-              />
+          {/* Signup Content Area */}
+          <div className="w-full">
+            <div className="text-center mb-stack-md">
+              <h2 className="font-headline-lg text-headline-lg mb-2">Join the Collective</h2>
+              <p className="font-body-md text-on-surface-variant">Start building your private knowledge base.</p>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-outline mb-2 ml-1">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                placeholder="Min 6 characters"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-outline mb-2 ml-1">Confirm Password</label>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && (
-              <div className="bg-error/5 border border-error/20 text-error text-xs p-3 rounded-lg flex items-center gap-2">
-                <span className="material-symbols-outlined text-sm">error</span>
-                {error}
+            <form onSubmit={handleSubmit} className="space-y-stack-md">
+              <div className="space-y-unit">
+                <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="email">Email Address</label>
+                <input 
+                  className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5" 
+                  id="email" 
+                  placeholder="name@example.com" 
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-primary text-surface rounded-xl font-label-lg text-label-lg hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <span className="material-symbols-outlined animate-spin">sync</span>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-lg">person_add</span>
-                  Join MindHive
-                </>
+              <div className="space-y-unit">
+                <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="password">Password</label>
+                <input 
+                  className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5" 
+                  id="password" 
+                  placeholder="Min 6 characters" 
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-unit">
+                <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="confirmPassword">Confirm Password</label>
+                <input 
+                  className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5" 
+                  id="confirmPassword" 
+                  placeholder="••••••••" 
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-error/5 border border-error/20 text-error text-xs p-3 rounded-lg flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
+                  <span className="material-symbols-outlined text-sm">error</span>
+                  {error}
+                </div>
               )}
-            </button>
-          </form>
 
-          <div className="mt-8 pt-8 border-t border-stone-100 dark:border-stone-800 text-center">
-            <p className="text-sm text-outline">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary font-bold hover:underline">Login</Link>
-            </p>
+              <button 
+                className="w-full py-4 bg-primary text-surface rounded-lg font-label-md uppercase tracking-[0.1em] hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50" 
+                type="submit"
+                disabled={loading}
+              >
+                {loading ? 'Creating Account...' : 'Join MindHive'}
+                {!loading && <span className="material-symbols-outlined text-lg">person_add</span>}
+              </button>
+            </form>
+
+            <div className="mt-stack-lg pt-stack-md border-t border-outline-variant/30 text-center">
+              <p className="font-body-md text-on-surface-variant">
+                Already have an account? 
+                <Link className="text-on-surface font-semibold hover:underline decoration-1 underline-offset-4 ml-1" to="/login">Login</Link>
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-stack-lg px-margin-page flex flex-col items-center gap-stack-sm mt-auto">
+        <div className="font-label-md text-[10px] tracking-[0.25em] text-on-surface-variant opacity-60 uppercase text-center">
+          MINDHIVE AI · PRIVATE & SECURE KNOWLEDGE BASE
+        </div>
+      </footer>
     </div>
   );
 }
