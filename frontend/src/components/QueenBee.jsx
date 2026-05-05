@@ -9,6 +9,7 @@ export default function QueenBee() {
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [thoughts, setThoughts] = useState([]);
   const [statusMessage, setStatusMessage] = useState('Thinking');
   const [dots, setDots] = useState('');
   const [showWaitWarning, setShowWaitWarning] = useState(false);
@@ -16,6 +17,7 @@ export default function QueenBee() {
   const isResizing = useRef(false);
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -122,16 +124,57 @@ export default function QueenBee() {
       lowerText.includes('web');
 
     setStatusMessage(isImplementationTask ? 'Implementing' : 'Thinking');
+    setThoughts([]);
     setIsLoading(true);
+    let finalAnswer = "";
 
     try {
-      // API expects history to be the PREVIOUS messages, not including the current one, but sending it all is okay, 
-      // however, the backend currently accepts `message` and `history`.
-      // Let's pass the previous history.
-      const res = await agentChat(text, history);
+      const response = await agentChat(text, history);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          // Process remaining buffer
+          const finalTrimmed = buffer.trim();
+          if (finalTrimmed) {
+            try {
+              const event = JSON.parse(finalTrimmed);
+              if (event.type === 'thought') setThoughts(prev => [...prev, event.content]);
+              else if (event.type === 'answer') finalAnswer = event.content;
+            } catch (e) {}
+          }
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Split by ASCII Record Separator \x1e
+        const parts = buffer.split('\x1e');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          const trimmed = part.trim();
+          if (!trimmed) continue;
+          
+          try {
+            const event = JSON.parse(trimmed);
+            if (event.type === 'thought') {
+              setThoughts(prev => [...prev, event.content]);
+            } else if (event.type === 'answer') {
+              finalAnswer = event.content;
+            }
+          } catch (e) {
+            console.error("Error parsing stream part:", trimmed, e);
+          }
+        }
+      }
+
       setHistory([...newHistory, {
         role: 'agent',
-        content: res.response || "Something went wrong. Please try again!",
+        content: finalAnswer || "Something went wrong. Please try again!",
         isTyping: true
       }]);
     } catch (err) {
@@ -143,7 +186,7 @@ export default function QueenBee() {
 
   const starters = [
     "Show my timeline",
-    "What have I uploaded?",
+    "Ingest this URL",
     "Create a new collection"
   ];
 
@@ -192,7 +235,17 @@ export default function QueenBee() {
                   {starters.map((starter, i) => (
                     <button
                       key={i}
-                      onClick={() => sendMessage(starter)}
+                      onClick={() => {
+                        if (starter === "Create a new collection") {
+                          setInput("Create a new collection named ");
+                          setTimeout(() => inputRef.current?.focus(), 10);
+                        } else if (starter === "Ingest this URL") {
+                          setInput("Ingest this URL: ");
+                          setTimeout(() => inputRef.current?.focus(), 10);
+                        } else {
+                          sendMessage(starter);
+                        }
+                      }}
                       className="text-sm bg-white border border-outline-variant rounded-full px-3 py-1.5 hover:border-primary hover:text-primary transition-colors text-left"
                     >
                       {starter}
@@ -235,8 +288,18 @@ export default function QueenBee() {
                   <p className="text-sm text-on-surface px-2">
                     {statusMessage}{dots}
                   </p>
+                  
+                  {/* Thoughts List */}
+                  <div className="flex flex-col gap-1.5 px-2 mt-1">
+                    {thoughts.map((thought, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[11px] text-outline animate-in slide-in-from-left-2 duration-300">
+                        • {thought}
+                      </div>
+                    ))}
+                  </div>
+
                   {showWaitWarning && (
-                    <p className="text-[10px] text-outline italic px-2 animate-in fade-in slide-in-from-top-1 duration-500 leading-tight">
+                    <p className="text-[10px] text-outline italic px-2 animate-in fade-in slide-in-from-top-1 duration-500 leading-tight mt-2">
                       Hang tight! I am using a powerful reasoning model to analyze your knowledge base. Queries can take some time but its worth the wait!
                     </p>
                   )}
@@ -253,6 +316,7 @@ export default function QueenBee() {
               className="flex gap-2"
             >
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

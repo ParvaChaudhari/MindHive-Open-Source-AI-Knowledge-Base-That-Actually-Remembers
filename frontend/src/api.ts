@@ -195,7 +195,7 @@ export const getChatHistory = async (docId: string): Promise<{ chats: { question
   return res.json();
 };
 
-export const agentChat = async (message: string, history: any[] = []): Promise<any> => {
+export const agentChat = async (message: string, history: any[] = []): Promise<Response> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/agent/chat`, {
     method: 'POST',
@@ -203,6 +203,6 @@ export const agentChat = async (message: string, history: any[] = []): Promise<a
     body: JSON.stringify({ message, history }),
   });
   if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  return res;
 };
 

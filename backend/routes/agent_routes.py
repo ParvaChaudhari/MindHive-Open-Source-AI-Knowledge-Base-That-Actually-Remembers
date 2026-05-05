@@ -1,4 +1,6 @@
+import json
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from services.agent_service import AgentService
 from typing import List
@@ -26,9 +28,9 @@ async def agent_chat(body: AgentChatRequest, auth=Depends(get_current_user), asv
     # Convert history to format agent expects
     history = [{"role": m.role, "content": m.content} for m in body.history]
     
-    response = await asv.chat(body.message, history, user.id)
-    
-    return {
-        "response": response,
-        "role": "agent"
-    }
+    async def generate():
+        async for event in asv.chat_generator(body.message, history, user.id):
+            # Using \x1e (Record Separator) which is highly reliable for streaming
+            yield (json.dumps(event) + "\x1e").encode('utf-8')
+
+    return StreamingResponse(generate(), media_type="application/json-seq")

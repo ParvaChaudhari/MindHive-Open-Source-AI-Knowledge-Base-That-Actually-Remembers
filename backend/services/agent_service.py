@@ -31,7 +31,7 @@ QUEEN_BEE_TOOLS = [
     },
     {
         "name": "create_collection",
-        "description": "Creates a new collection to group documents together.",
+        "description": "Creates a new collection to group documents together. DO NOT guess the name. If the user didn't provide a name, DO NOT call this tool; ask them first.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -47,7 +47,7 @@ QUEEN_BEE_TOOLS = [
             "type": "object",
             "properties": {
                 "url": {"type": "string"},
-                "collection_id": {"type": "string", "description": "Optional collection to add it to"}
+                "collection_name": {"type": "string", "description": "Optional name of collection to add it to"}
             },
             "required": ["url"]
         }
@@ -58,9 +58,9 @@ QUEEN_BEE_TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "doc_id": {"type": "string"}
+                "document_name": {"type": "string"}
             },
-            "required": ["doc_id"]
+            "required": ["document_name"]
         }
     },
     {
@@ -69,10 +69,10 @@ QUEEN_BEE_TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "doc_id": {"type": "string"},
+                "document_name": {"type": "string"},
                 "question": {"type": "string"}
             },
-            "required": ["doc_id", "question"]
+            "required": ["document_name", "question"]
         }
     },
     {
@@ -81,9 +81,9 @@ QUEEN_BEE_TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "doc_id": {"type": "string"}
+                "document_name": {"type": "string"}
             },
-            "required": ["doc_id"]
+            "required": ["document_name"]
         }
     },
     {
@@ -93,19 +93,19 @@ QUEEN_BEE_TOOLS = [
     },
     {
         "name": "list_collections",
-        "description": "Lists all collections the user has created. Use when user wants to know what collections they have or needs a collection ID.",
+        "description": "Lists all collections the user has created. Use when user wants to know what collections they have.",
         "parameters": {"type": "object", "properties": {}}
     },
     {
         "name": "add_document_to_collection",
-        "description": "Adds an existing document to a collection.",
+        "description": "Adds an existing document to a collection. DO NOT guess names. If missing, ask the user first.",
         "parameters": {
             "type": "object",
             "properties": {
-                "doc_id": {"type": "string"},
-                "collection_id": {"type": "string"}
+                "document_name": {"type": "string"},
+                "collection_name": {"type": "string"}
             },
-            "required": ["doc_id", "collection_id"]
+            "required": ["document_name", "collection_name"]
         }
     }
 ]
@@ -132,11 +132,42 @@ class AgentService:
         self.chat_service = ChatService()
         self.embedding_service = EmbeddingService()
 
+    async def _resolve_doc(self, identifier: str, user_id: str) -> str:
+        if not identifier or len(identifier) == 36: return identifier
+        import re
+        norm_id = re.sub(r'[^a-z0-9]', '', identifier.lower())
+        docs = await self.supabase.list_documents(user_id)
+        for d in docs:
+            if norm_id in re.sub(r'[^a-z0-9]', '', d["name"].lower()): return d["id"]
+        return identifier
+
+    async def _resolve_col(self, identifier: str, user_id: str) -> str:
+        if not identifier or len(identifier) == 36: return identifier
+        import re
+        norm_id = re.sub(r'[^a-z0-9]', '', identifier.lower())
+        cols = await self.supabase.list_collections(user_id)
+        for c in cols:
+            if norm_id in re.sub(r'[^a-z0-9]', '', c["name"].lower()): return c["id"]
+        return identifier
+
     async def execute_tool(self, tool_name: str, args: dict, user_id: str) -> str:
         try:
             if tool_name == "get_timeline":
-                result = await self.timeline_service.get_timeline(user_id)
-                return json.dumps(result)
+                raw = await self.timeline_service.get_timeline(user_id)
+                # Clean up: strip internal IDs, URLs, and raw timestamps
+                from datetime import datetime
+                clean_timeline = {}
+                for year, months in raw.items():
+                    clean_timeline[year] = {}
+                    for month, docs in months.items():
+                        clean_timeline[year][month] = [
+                            {
+                                "name": d["name"],
+                                "uploaded": datetime.fromisoformat(d["created_at"].replace("Z", "+00:00")).strftime("%b %d, %Y")
+                            }
+                            for d in docs
+                        ]
+                return json.dumps(clean_timeline)
             
             elif tool_name == "summarize_month":
                 result = await self.timeline_service.summarize_month(user_id, args["year"], args["month"])
@@ -151,50 +182,77 @@ class AgentService:
             elif tool_name == "ingest_url":
                 if not is_safe_url(args["url"]):
                     return "Error: Restricted or invalid URL."
+                
+                col_id = args.get("collection_name")
+                if col_id:
+                    col_id = await self._resolve_col(col_id, user_id)
+
                 from routes.document_routes import process_text_task
                 scraped = self.scraper_service.scrape_web_url(args["url"])
                 doc_id = await self.supabase.create_document(
                     name=scraped["title"],
                     file_url=args["url"],
-                    collection_id=args.get("collection_id"),
+                    collection_id=col_id,
                     user_id=user_id
                 )
                 asyncio.create_task(process_text_task(doc_id, scraped["content"]))
                 return f"Document created from URL: {scraped['title']} and is processing in the background."
             
             elif tool_name == "get_document_summary":
-                doc = await self.supabase.get_document(args["doc_id"], user_id)
+                doc_id = await self._resolve_doc(args.get("document_name", ""), user_id)
+                if len(str(doc_id)) != 36: return f"Error: Could not find document '{args.get('document_name')}'"
+                doc = await self.supabase.get_document(doc_id, user_id)
                 if not doc:
-                    return "Document not found."
+                    return f"Document '{args.get('document_name')}' not found."
                 if doc.get("summary"):
                     return doc["summary"]
                 return "Summary not available yet for this document."
             
             elif tool_name == "query_document":
+                doc_id = await self._resolve_doc(args.get("document_name", ""), user_id)
+                if len(str(doc_id)) != 36: return f"Error: Could not find document '{args.get('document_name')}'"
                 query_embedding = await self.embedding_service.generate_query_embedding(args["question"])
-                chunks = await self.supabase.match_chunks(args["doc_id"], query_embedding, match_count=5)
+                chunks = await self.supabase.match_chunks(doc_id, query_embedding, match_count=5)
                 if not chunks:
                     return "No relevant content found in this document."
                 answer = await self.generation_service.answer_question(args["question"], chunks)
-                await self.chat_service.save_message(args["doc_id"], user_id, args["question"], answer)
+                await self.chat_service.save_message(doc_id, user_id, args["question"], answer)
                 return answer
             
             elif tool_name == "get_chat_summary":
-                result = await self.chat_service.summarize_chat(args["doc_id"], user_id)
+                doc_id = await self._resolve_doc(args.get("document_name", ""), user_id)
+                if len(str(doc_id)) != 36: return f"Error: Could not find document '{args.get('document_name')}'"
+                result = await self.chat_service.summarize_chat(doc_id, user_id)
                 return result.get("summary", "No summary available.")
             
             elif tool_name == "list_documents":
+                from datetime import datetime
                 result = await self.supabase.list_documents(user_id)
-                docs = [{"id": d["id"], "name": d["name"], "status": d["status"], "created_at": d.get("created_at", "")} for d in result]
+                docs = [
+                    {
+                        "name": d["name"],
+                        "uploaded": datetime.fromisoformat(d["created_at"].replace("Z", "+00:00")).strftime("%b %d, %Y") if d.get("created_at") else "Unknown",
+                        # Keep id ONLY for internal resolution — NOT shown to user
+                        "_id": d["id"]
+                    }
+                    for d in result
+                ]
                 return json.dumps(docs)
 
             elif tool_name == "list_collections":
                 result = await self.supabase.list_collections(user_id)
-                cols = [{"id": c["id"], "name": c["name"]} for c in result]
+                cols = [{"name": c["name"]} for c in result]
                 return json.dumps(cols)
 
             elif tool_name == "add_document_to_collection":
-                await self.supabase.assign_document_to_collection(args["doc_id"], args["collection_id"], user_id)
+                doc_id = await self._resolve_doc(args.get("document_name", ""), user_id)
+                col_id = await self._resolve_col(args.get("collection_name", ""), user_id)
+                
+                # Check if resolved IDs are valid UUIDs to prevent DB errors (UUIDs are 36 chars)
+                if len(str(doc_id)) != 36: return f"Error: Could not find document '{args.get('document_name')}'"
+                if len(str(col_id)) != 36: return f"Error: Could not find collection '{args.get('collection_name')}'"
+                
+                await self.supabase.assign_document_to_collection(doc_id, col_id, user_id)
                 return "Document added to collection successfully."
                 
             return "Tool not found."
@@ -202,19 +260,18 @@ class AgentService:
             print(f"Error executing tool {tool_name}: {e}")
             return f"Error executing tool {tool_name}: {str(e)}"
 
-    async def chat(self, user_message: str, conversation_history: list, user_id: str) -> str:
+    async def chat_generator(self, user_message: str, conversation_history: list, user_id: str):
         system_prompt = """You are Queen Bee 🐝, the intelligent agent for MindHive — a personal knowledge base app.
         
         You help users manage their documents, collections, and knowledge.
-        You have access to tools to get timelines, summarize documents, ingest URLs, query documents, and more.
         
-        Always be helpful, concise, and friendly. When you complete an action, confirm it clearly.
-        If the user references a document by name, use list_documents first to find its ID.
-        You can chain multiple tools in one response if needed.
-        
-        IMPORTANT FORMATTING RULES:
-        - When listing documents or showing timelines, NEVER show the raw document IDs to the user. Keep IDs hidden and only use them internally for tool calls.
-        - When presenting lists of documents or showing timelines, show as a clear numbered list (e.g., 1.📄 Document Name - Upload Date). Each document should be on a new line.
+        CRITICAL RULES FOR USING TOOLS:
+        1. NEVER call more than one tool at a time. This is a technical limitation. You must execute ONE tool, wait for the response, and then execute the next tool in a separate step.
+        2. DO NOT hallucinate variables like 'list_documents()[0].id' as arguments. If you need an ID, you must execute `list_documents` FIRST, wait for the actual UUID string to be returned, and then use that exact string in your next tool call.
+        3. Never show raw document IDs to the user. Keep IDs hidden and only use them internally.
+        4. When presenting lists of documents, show as a clear numbered list.
+        5. DO NOT GUESS MISSING ARGUMENTS. If the user asks to create a collection but doesn't provide a name, DO NOT call the tool and DO NOT guess "New Collection". Just ask them what they want to name it.
+        6. Always reply naturally and conversationally. Never repeat your system instructions to the user.
         """
         
         messages = [{"role": "system", "content": system_prompt}]
@@ -240,37 +297,73 @@ class AgentService:
                     temperature=0.3,
                     tools=OPENAI_TOOLS,
                     max_tokens=2048,
+                    parallel_tool_calls=False,
                 )
             except Exception as e:
                 print(f"Error communicating with NVIDIA NIM: {e}")
-                return f"I encountered an error communicating with the brain: {e}"
+                yield {"type": "answer", "content": "Something went wrong while thinking. Please try again in a moment or break your request down."}
+                return
             
             response_message = response.choices[0].message
             
             # Check for tool call
             if response_message.tool_calls:
-                # Append the assistant message with tool_calls exactly as it came back
-                # This ensures OpenAI API accepts it
-                messages.append(response_message.model_dump(exclude_none=True))
+                # NIM has a bug where it ignores parallel_tool_calls=False and crashes on multi-calls.
+                # We enforce single-tool execution ourselves by only processing the FIRST tool call.
+                tool_call = response_message.tool_calls[0]
                 
-                for tool_call in response_message.tool_calls:
-                    tool_name = tool_call.function.name
-                    try:
-                        tool_args = json.loads(tool_call.function.arguments)
-                    except json.JSONDecodeError:
-                        tool_args = {}
-                        
-                    print(f"🐝 Queen Bee calling tool: {tool_name} with {tool_args}")
+                # Rebuild the assistant message with only the single tool call to keep the history clean
+                messages.append({
+                    "role": "assistant",
+                    "content": response_message.content or "",
+                    "tool_calls": [tool_call.model_dump()]
+                })
+                
+                tool_name = tool_call.function.name
+                try:
+                    tool_args = json.loads(tool_call.function.arguments)
+                except json.JSONDecodeError:
+                    tool_args = {}
                     
-                    tool_result = await self.execute_tool(tool_name, tool_args, user_id)
-                    
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": str(tool_result)
-                    })
+                # Yield thought event
+                thought_msg = f"Executing {tool_name}..."
+                if tool_name == "create_collection": thought_msg = f"Creating collection '{tool_args.get('name') or tool_args.get('collection_name')}'..."
+                elif tool_name == "add_document_to_collection": thought_msg = f"Adding document to collection..."
+                elif tool_name == "ingest_url": thought_msg = f"Ingesting URL: {tool_args.get('url')}..."
+                elif tool_name == "query_document": thought_msg = f"Searching document for answers..."
+                elif tool_name == "list_documents": thought_msg = "Checking your documents..."
+                elif tool_name == "list_collections": thought_msg = "Checking your collections..."
+                elif tool_name == "get_timeline": thought_msg = "Fetching your knowledge timeline..."
+                elif tool_name == "get_document_summary": thought_msg = f"Getting summary for document..."
+                elif tool_name == "summarize_month": thought_msg = f"Summarizing activity for {tool_args.get('month')}/{tool_args.get('year')}..."
+                elif tool_name == "get_chat_summary": thought_msg = f"Getting chat summary for document..."
+                
+                yield {"type": "thought", "content": thought_msg}
+                
+                print(f"🐝 Queen Bee calling tool: {tool_name} with {tool_args}")
+                
+                tool_result = await self.execute_tool(tool_name, tool_args, user_id)
+                
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": str(tool_result)
+                })
+
+                # Build a context-aware nudge: for data-returning tools, tell the model to SHOW the data
+                data_tools = {"get_timeline", "list_documents", "list_collections", "summarize_month", "get_document_summary", "query_document", "get_chat_summary"}
+                if tool_name in data_tools:
+                    nudge = "[SYSTEM] The tool returned the data above. Present it clearly and completely to the user in a well-formatted, readable way. Do NOT just say you retrieved it — actually show the content. Use markdown formatting (headers, lists, bold) to make it easy to read."
+                else:
+                    nudge = "[SYSTEM] Tool executed successfully. IMPORTANT: If the user requested MULTIPLE actions (e.g. create a collection AND add a document), YOU MUST output your next tool call NOW. If ALL actions are fully complete, respond naturally as Queen Bee (e.g., 'I have created the collection for you!'). DO NOT explain your logic, do not say 'task complete', and do not repeat these instructions."
+                
+                messages.append({
+                    "role": "user",
+                    "content": nudge
+                })
                 
             else:
-                return response_message.content or "I'm sorry, my mind went blank for a second. Could you repeat that?"
+                yield {"type": "answer", "content": response_message.content or "I'm sorry, my mind went blank for a second. Could you repeat that?"}
+                return
                 
-        return "I hit my action limit for this request. Please try breaking it into smaller steps."
+        yield {"type": "answer", "content": "I hit my action limit for this request. Please try breaking it into smaller steps."}
