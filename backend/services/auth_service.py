@@ -18,20 +18,38 @@ class MockUser:
         self.id = user_id
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Decodes the Supabase JWT locally to extract the user without network calls."""
+    """Decodes and verifies the Supabase JWT."""
     token = credentials.credentials
+    jwt_secret = os.environ.get("SUPABASE_JWT_SECRET")
     
     try:
-        # Decode the token locally. Since the container network is dropping connections 
-        # to Supabase, we decode without network verification for local development.
-        payload = jwt.decode(token, options={"verify_signature": False})
+        if jwt_secret:
+            # PRODUCTION MODE: Strictly verify the signature and expiration
+            # Supabase tokens use HS256 with the JWT Secret
+            payload = jwt.decode(
+                token, 
+                jwt_secret, 
+                algorithms=["HS256"],
+                options={"verify_aud": False} # Supabase uses 'authenticated' as aud
+            )
+        else:
+            # DEVELOPMENT MODE: Decode without verification if secret is missing
+            print("WARNING: JWT signature verification is DISABLED. Set SUPABASE_JWT_SECRET for production.")
+            payload = jwt.decode(token, options={"verify_signature": False})
         
         user_id = payload.get("sub")
         if not user_id:
             raise ValueError("Token missing user ID")
             
+        # Optional: Check if token is expired (jwt.decode does this automatically if 'exp' is present)
+        
         user = MockUser(user_id)
         return user, token
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError as e:
+        print(f"JWT Error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
     except Exception as e:
         print(f"Auth error: {e}")
         raise HTTPException(status_code=401, detail="Could not validate credentials")
