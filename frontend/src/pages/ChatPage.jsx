@@ -4,6 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { listDocuments, queryDocument, summarizeDocument, getDocument, getChatHistory } from '../api';
+import { supabase } from '../supabaseClient';
 import ProfileDropdown from '../components/ProfileDropdown';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 import Typewriter from '../components/common/Typewriter';
@@ -48,7 +49,7 @@ export default function ChatPage({ onMenuClick }) {
     estimateSize: () => 150,
     overscan: 5,
   });
-  
+
   const docIdFromUrl = useMemo(() => searchParams.get('doc'), [searchParams]);
   const autoSummary = useMemo(() => searchParams.get('autosummary') === '1', [searchParams]);
 
@@ -57,7 +58,7 @@ export default function ChatPage({ onMenuClick }) {
     queryFn: listDocuments
   });
   const allReadyDocs = (data?.documents || []).filter(d => d.status === 'ready');
-  const docs = allReadyDocs.filter(d => 
+  const docs = allReadyDocs.filter(d =>
     d.name.toLowerCase().includes(docSearchQuery.toLowerCase())
   );
 
@@ -125,7 +126,7 @@ export default function ChatPage({ onMenuClick }) {
       pendingNavigationRef.current = doc.id;
       navigate(`/chat?doc=${doc.id}`);
     }
-    
+
     setSelectedDoc(doc);
     setShowDocSidebar(false);
     setInput('');
@@ -142,8 +143,8 @@ export default function ChatPage({ onMenuClick }) {
       if (history.chats && history.chats.length > 0) {
         const loadedMessages = [baseMessage];
         for (const chat of history.chats) {
-           loadedMessages.push({ role: 'user', content: chat.question, sources: null });
-           loadedMessages.push({ role: 'assistant', content: chat.answer, sources: null });
+          loadedMessages.push({ role: 'user', content: chat.question, sources: null });
+          loadedMessages.push({ role: 'assistant', content: chat.answer, sources: null });
         }
         setMessages(loadedMessages);
       } else {
@@ -202,7 +203,7 @@ export default function ChatPage({ onMenuClick }) {
     if (!autoSummary || autoSummarizedRef.current) return;
     if (!selectedDoc || selectedDoc.status !== 'ready') return;
     if (summarizing) return;
-    
+
     // Check if we've already manually requested a summary in this session
     const alreadyRequested = messages.some((m) => m.role === 'user' && m.content.includes('Generate a summary'));
     if (alreadyRequested) {
@@ -220,7 +221,7 @@ export default function ChatPage({ onMenuClick }) {
     const content = messages.map(m => (
       `### ${m.role === 'user' ? 'User' : 'MindHive'}\n${m.content}\n\n`
     )).join('---\n\n');
-    
+
     const blob = new Blob([content], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -237,7 +238,7 @@ export default function ChatPage({ onMenuClick }) {
     <main className="h-screen flex bg-background relative overflow-hidden">
       {/* Document Sidebar overlay on mobile */}
       {showDocSidebar && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setShowDocSidebar(false)}
         />
@@ -246,7 +247,7 @@ export default function ChatPage({ onMenuClick }) {
       {/* Document Sidebar */}
       <aside className={`absolute lg:relative h-full border-r border-stone-200 dark:border-stone-800 flex flex-col bg-surface-container-low z-40 transition-all duration-300 ${showDocSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${isDocSidebarCollapsed ? 'w-0' : 'w-80'}`}>
         {/* Toggle Button */}
-        <button 
+        <button
           onClick={() => setIsDocSidebarCollapsed(!isDocSidebarCollapsed)}
           className={`hidden lg:flex absolute top-1/2 -translate-y-1/2 w-6 h-12 bg-surface-container-low border border-stone-200 dark:border-stone-800 rounded-r-lg items-center justify-center text-stone-500 hover:text-stone-900 shadow-sm z-50 transition-all ${isDocSidebarCollapsed ? 'left-0' : 'left-full'}`}
           title={isDocSidebarCollapsed ? 'Show Knowledge Base' : 'Hide Knowledge Base'}
@@ -267,10 +268,10 @@ export default function ChatPage({ onMenuClick }) {
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            
+
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
-              <input 
+              <input
                 type="text"
                 placeholder="Search files..."
                 value={docSearchQuery}
@@ -278,7 +279,7 @@ export default function ChatPage({ onMenuClick }) {
                 className="w-full bg-surface border border-outline-variant rounded-lg pl-9 pr-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none transition-all"
               />
               {docSearchQuery && (
-                <button 
+                <button
                   onClick={() => setDocSearchQuery('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface"
                 >
@@ -294,7 +295,7 @@ export default function ChatPage({ onMenuClick }) {
                   {docSearchQuery ? `No matches for "${docSearchQuery}"` : 'No indexed documents found.'}
                 </p>
                 {!docSearchQuery && (
-                  <button 
+                  <button
                     onClick={() => navigate('/documents')}
                     className="w-full py-2 bg-primary text-surface rounded-lg font-label-md text-xs hover:opacity-90"
                   >
@@ -307,11 +308,10 @@ export default function ChatPage({ onMenuClick }) {
                 <button
                   key={doc.id}
                   onClick={() => selectDoc(doc)}
-                  className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all ${
-                    selectedDoc?.id === doc.id 
-                      ? 'bg-surface-container-highest border border-outline-variant shadow-sm' 
+                  className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all ${selectedDoc?.id === doc.id
+                      ? 'bg-surface-container-highest border border-outline-variant shadow-sm'
                       : 'hover:bg-surface-container'
-                  }`}
+                    }`}
                 >
                   <span className="material-symbols-outlined text-outline">description</span>
                   <span className="text-sm font-label-md truncate">{doc.name}</span>
@@ -338,7 +338,7 @@ export default function ChatPage({ onMenuClick }) {
           </div>
           <div className="flex items-center gap-2">
             {messages.length > 0 && (
-              <button 
+              <button
                 onClick={exportChat}
                 className="p-2 text-outline hover:text-primary transition-colors"
                 title="Export Chat as Markdown"
@@ -346,16 +346,15 @@ export default function ChatPage({ onMenuClick }) {
                 <span className="material-symbols-outlined">download</span>
               </button>
             )}
-            <button 
+            <button
               onClick={handleSummarize}
               disabled={!selectedDoc || selectedDoc.status !== 'ready' || docBootstrapping || summarizing}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-label-md text-xs transition-all ${
-                summarizing 
-                  ? 'bg-surface-container text-outline' 
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-label-md text-xs transition-all ${summarizing
+                  ? 'bg-surface-container text-outline'
                   : 'bg-stone-900 text-white dark:bg-white dark:text-stone-900 hover:opacity-90'
-              }`}
+                }`}
             >
-              <span className={`material-symbols-outlined text-sm ${summarizing ? 'animate-spin' : ''}`}>
+              <span className={`material-symbols-outlined text-sm ${summarizing ? 'animate-spin-reverse' : ''}`}>
                 {summarizing ? 'sync' : 'auto_awesome'}
               </span>
               {summarizing ? 'Summarizing...' : 'Get Summary'}
@@ -383,7 +382,7 @@ export default function ChatPage({ onMenuClick }) {
                 {docBootstrapping && (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
                     <div className="w-16 h-16 rounded-full bg-primary-fixed flex items-center justify-center mb-6">
-                      <span className="material-symbols-outlined text-primary text-3xl animate-spin">sync</span>
+                      <span className="material-symbols-outlined text-primary text-3xl animate-spin-reverse">sync</span>
                     </div>
                     <h3 className="font-headline-lg text-headline-lg mb-2">Preparing your document…</h3>
                     <p className="text-on-surface-variant font-body-md max-w-[420px]">
@@ -420,20 +419,19 @@ export default function ChatPage({ onMenuClick }) {
                                   <span className="material-symbols-outlined text-surface text-sm">hive</span>
                                 </div>
                               )}
-                              <div className={`max-w-[80%] ${
-                                msg.role === 'user' 
-                                  ? 'bg-primary text-surface p-4 rounded-xl shadow-sm' 
+                              <div className={`max-w-[80%] ${msg.role === 'user'
+                                  ? 'bg-primary text-surface p-4 rounded-xl shadow-sm'
                                   : 'p-1 leading-relaxed'
-                              }`}>
+                                }`}>
                                 <div className={`prose prose-stone dark:prose-invert max-w-none font-medium ${msg.role === 'user' ? 'text-surface' : 'text-on-surface'}`}>
                                   {msg.role === 'assistant' && msg.isTyping ? (
                                     <Typewriter content={msg.content} />
                                   ) : (
-                                    <ReactMarkdown 
+                                    <ReactMarkdown
                                       rehypePlugins={[rehypeSanitize]}
                                       components={{
-                                        p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
-                                        code: ({children}) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
+                                        p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
+                                        code: ({ children }) => <code className="bg-stone-200 dark:bg-stone-800 px-1 rounded font-mono text-sm">{children}</code>
                                       }}
                                     >
                                       {msg.content}
@@ -489,7 +487,7 @@ export default function ChatPage({ onMenuClick }) {
                 </button>
               </div>
               <p className="max-w-[800px] mx-auto mt-3 text-[10px] text-center text-outline">
-                MindHive uses Gemini 2.5 Flash. Responses may be summarized for clarity.
+                MindHive is powered by Llama 3.2 Instruct. Responses are grounded in your knowledge base.
               </p>
             </div>
           </>

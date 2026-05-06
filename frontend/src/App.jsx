@@ -18,7 +18,7 @@ const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return (
     <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center">
-      <span className="material-symbols-outlined animate-spin text-primary text-4xl mb-4">sync</span>
+      <span className="material-symbols-outlined animate-spin-reverse text-primary text-4xl mb-4">sync</span>
       <p className="text-outline font-label-md">Entering the Hive...</p>
     </div>
   );

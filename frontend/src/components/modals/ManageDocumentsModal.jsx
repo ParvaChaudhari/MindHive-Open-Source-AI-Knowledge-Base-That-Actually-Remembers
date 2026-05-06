@@ -47,7 +47,7 @@ export default function ManageDocumentsModal({ collection, onClose, onUpdated })
 
         {loading ? (
           <div className="flex justify-center py-10">
-            <span className="material-symbols-outlined text-outline animate-spin">sync</span>
+            <span className="material-symbols-outlined text-outline animate-spin-reverse">sync</span>
           </div>
         ) : allDocs.length === 0 ? (
           <div className="text-center py-10 text-on-surface-variant font-body-md">

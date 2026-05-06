@@ -112,7 +112,7 @@ export default function UploadWidget({ collectionId = null, onSuccess, onClose, 
     return (
       <div className="bg-surface p-8 rounded-2xl border border-outline-variant shadow-sm text-center animate-in fade-in zoom-in-95 duration-300">
         <div className="w-16 h-16 bg-secondary/10 text-secondary rounded-full flex items-center justify-center mx-auto mb-6">
-          <span className={`material-symbols-outlined text-3xl ${status === 'processing' ? 'animate-spin' : ''}`}>
+          <span className={`material-symbols-outlined text-3xl ${status === 'processing' ? 'animate-spin-reverse' : ''}`}>
             {status === 'processing' ? 'sync' : 'verified'}
           </span>
         </div>
@@ -128,7 +128,7 @@ export default function UploadWidget({ collectionId = null, onSuccess, onClose, 
         {polling && (
           <div className="bg-surface-container-low rounded-xl p-5 mb-8 text-left border border-outline-variant/50">
             <div className="flex items-center gap-3 py-4">
-              <span className="material-symbols-outlined text-outline animate-spin text-sm">sync</span>
+              <span className="material-symbols-outlined text-outline animate-spin-reverse text-sm">sync</span>
               <p className="text-sm text-outline italic">Building your knowledge base…</p>
             </div>
           </div>
@@ -258,7 +258,7 @@ export default function UploadWidget({ collectionId = null, onSuccess, onClose, 
       >
         {status === 'uploading' ? (
           <>
-            <span className="material-symbols-outlined animate-spin">sync</span>
+            <span className="material-symbols-outlined animate-spin-reverse">sync</span>
             Ingesting...
           </>
         ) : (

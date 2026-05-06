@@ -1,6 +1,6 @@
 # MindHive — AI-Powered Knowledge Base
 
-> Upload PDFs, YouTube videos, and web pages — then chat with your documents using Gemini AI.
+> Upload PDFs, YouTube videos, and web pages — then chat with your documents using Llama AI.
 
 MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that lets you build a personal knowledge base from any content source. Chunk it, embed it, and query it with natural language through a clean, modern interface.
 
@@ -13,13 +13,13 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 - **Web page ingestion** — Scrape any URL and add it to your knowledge base
 - **Single-document chat** — Ask questions about a specific document with page-level citations
 - **Collections** — Group documents and query across all of them simultaneously
-- **Cross-document RAG** — Powered by pgvector similarity search + Gemini AI
+- **Cross-document RAG** — Powered by pgvector similarity search + Llama AI
 - **Document summaries** — Auto-generated TL;DRs for any document or collection
 - **Flashcard generation** — Generate Q&A study cards from any document
 - **Rename & manage** — Rename documents and manage collection membership
 - **Auth & RLS** — Supabase Auth with strict PostgreSQL Row Level Security
 - **Export** — Download chat conversations as Markdown
-- **Queen Bee Agent** — Persistent AI assistant managing collections and learning history (Powered by Llama 3.3 Nemotron)
+- **Queen Bee Agent** — Persistent AI assistant managing collections and learning history (Powered by Llama 3.3 70B)
 
 ---
 
@@ -52,7 +52,7 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 | **Caching/Security**| **Redis** (Distributed Rate Limiting) |
 | **DevOps** | **Docker**, Docker Compose, GitHub Actions (CI/CD) |
 | **Storage** | Supabase Storage (PDFs) |
-| **AI** | Google Gemini API (`gemini-2.5-flash`), NVIDIA NIM (`llama-3.3-nemotron`) |
+| **AI** | NVIDIA NIM (Llama 3.2 3B, 3.1 8B, 3.3 70B), Google Gemini (Embeddings) |
 | **Auth** | Supabase Auth + JWT |
 
 ---
@@ -188,8 +188,11 @@ npm run dev
 |---|---|---|
 | `SUPABASE_URL` | Your Supabase project URL | Project Settings → API |
 | `SUPABASE_SERVICE_KEY` | Service role key (secret!) | Project Settings → API |
-| `GEMINI_API_KEY` | Google Gemini API key | [aistudio.google.com](https://aistudio.google.com) |
-| `NVIDIA_API_KEY` | NVIDIA NIM API key (for Agent) | build.nvidia.com |
+| `GEMINI_API_KEY` | Google Gemini API key (for embeddings) | [aistudio.google.com](https://aistudio.google.com) |
+| `NVIDIA_API_KEY` | NVIDIA NIM API key | [build.nvidia.com](https://build.nvidia.com) |
+| `NVIDIA_MODEL` | Queen Bee Agent Model | [build.nvidia.com](https://build.nvidia.com/meta/llama-3_3-70b-instruct) |
+| `NVIDIA_MODEL_CHAT` | Fast Chat Model | [build.nvidia.com](https://build.nvidia.com/meta/llama-3.2-3b-instruct) |
+| `NVIDIA_MODEL_FLASHCARD` | Flashcard Generation Model | [build.nvidia.com](https://build.nvidia.com/meta/llama-3_1-8b-instruct) |
 
 #### `frontend/.env`
 

@@ -314,7 +314,7 @@ export default function CollectionsPage({ onMenuClick }) {
 
         <footer className="mt-20 pt-8 border-t border-outline-variant text-center">
           <p className="text-outline text-sm font-body-md">
-            Cross-document querying powered by pgvector similarity search + Gemini AI.
+            Cross-document querying powered by pgvector similarity search + Llama 3.2 Instruct.
           </p>
         </footer>
       </div>

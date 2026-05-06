@@ -58,7 +58,7 @@ export default function FlashcardsModal({ docId, docName, onClose }) {
         <div className="flex-1 p-8 flex flex-col items-center justify-center min-h-[300px]">
           {loading ? (
             <div className="text-center">
-              <span className="material-symbols-outlined text-4xl text-primary animate-spin mb-4">sync</span>
+              <span className="material-symbols-outlined text-4xl text-primary animate-spin-reverse mb-4">sync</span>
               <p className="text-on-surface-variant font-label-md">Generating study material...</p>
             </div>
           ) : error ? (
