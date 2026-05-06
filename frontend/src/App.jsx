@@ -8,6 +8,8 @@ import CollectionsPage from './pages/CollectionsPage';
 import ChatPage from './pages/ChatPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import QueenBee from './components/QueenBee';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { useState } from 'react';
@@ -46,6 +48,8 @@ function AppContent() {
           <Routes>
             <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
             <Route path="/signup" element={user ? <Navigate to="/" /> : <SignupPage />} />
+            <Route path="/forgot-password" element={user ? <Navigate to="/" /> : <ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             
             <Route path="/" element={<ProtectedRoute><DashboardPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />
             <Route path="/documents" element={<ProtectedRoute><DocumentsPage onMenuClick={() => setSidebarOpen(true)} /></ProtectedRoute>} />

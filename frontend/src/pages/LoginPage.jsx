@@ -15,7 +15,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     try {
       const { error } = await login(email, password);
       if (error) throw error;
@@ -27,13 +27,30 @@ export default function LoginPage() {
     }
   };
 
+  const handleDemoLogin = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const demoEmail = import.meta.env.VITE_DEMO_EMAIL;
+      const demoPassword = import.meta.env.VITE_DEMO_PASSWORD;
+      const { error } = await login(demoEmail, demoPassword);
+      if (error) throw error;
+      navigate('/');
+    } catch (err) {
+      setError('Demo account is currently unavailable. ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen text-on-surface relative bg-transparent">
       <HexagonBackground />
-      
+
       <main className="flex-grow flex items-center justify-center px-gutter py-stack-lg relative z-10">
         <div className="max-w-[440px] w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          
+
           {/* Brand Logo */}
           <div className="flex items-center gap-3 mb-stack-lg">
             <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center shadow-lg shadow-black/5">
@@ -52,10 +69,10 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-stack-md">
               <div className="space-y-unit">
                 <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="email">Email Address</label>
-                <input 
-                  className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5" 
-                  id="email" 
-                  placeholder="name@example.com" 
+                <input
+                  className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5"
+                  id="email"
+                  placeholder="name@example.com"
                   type="email"
                   required
                   value={email}
@@ -66,12 +83,12 @@ export default function LoginPage() {
               <div className="space-y-unit">
                 <div className="flex justify-between items-center px-1">
                   <label className="font-label-md text-label-md text-on-surface-variant uppercase" htmlFor="password">Password</label>
-                  <a className="font-label-md text-label-md text-secondary hover:underline transition-all" href="#">Forgot?</a>
+                  <Link className="font-label-md text-label-md text-secondary font-bold transition-all" to="/forgot-password">Forgot?</Link>
                 </div>
-                <input 
-                  className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5" 
-                  id="password" 
-                  placeholder="••••••••" 
+                <input
+                  className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5"
+                  id="password"
+                  placeholder="••••••••"
                   type="password"
                   required
                   value={password}
@@ -86,20 +103,32 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <button 
-                className="w-full py-4 bg-primary text-surface rounded-lg font-label-md uppercase tracking-[0.1em] hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50" 
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? 'Authenticating...' : 'Login to MindHive'}
-                {!loading && <span className="material-symbols-outlined text-lg">arrow_forward</span>}
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  className="w-full py-4 bg-primary text-surface rounded-lg font-label-md uppercase tracking-[0.1em] hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading ? 'Authenticating...' : 'Login to MindHive'}
+                  {!loading && <span className="material-symbols-outlined text-lg">arrow_forward</span>}
+                </button>
+
+                <button
+                  className="w-full py-3 bg-white/90 backdrop-blur-md border border-outline-variant text-on-surface rounded-lg font-label-md uppercase tracking-[0.1em] hover:bg-white hover:border-primary active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  type="button"
+                  onClick={handleDemoLogin}
+                  disabled={loading}
+                >
+                  <span className="material-symbols-outlined text-lg">bolt</span>
+                  Try Demo Account
+                </button>
+              </div>
             </form>
 
             <div className="mt-stack-lg pt-stack-md border-t border-outline-variant/30 text-center">
               <p className="font-body-md text-on-surface-variant">
-                New to the collective? 
-                <Link className="text-on-surface font-semibold hover:underline decoration-1 underline-offset-4 ml-1" to="/signup">Create an account</Link>
+                New to the collective?
+                <Link className="text-on-surface font-bold ml-1" to="/signup">Create an account</Link>
               </p>
             </div>
           </div>

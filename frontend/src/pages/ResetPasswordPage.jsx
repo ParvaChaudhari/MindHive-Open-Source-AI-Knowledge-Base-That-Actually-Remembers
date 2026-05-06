@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import HexagonBackground from '../components/common/HexagonBackground';
 
-export default function SignupPage() {
-  const [email, setEmail] = useState('');
+export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
+  const { updatePassword } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -20,12 +19,12 @@ export default function SignupPage() {
     setLoading(true);
     
     try {
-      const { error } = await signup(email, password);
+      const { error } = await updatePassword(password);
       if (error) throw error;
-      alert('Check your email for the confirmation link!');
+      alert('Password updated successfully!');
       navigate('/login');
     } catch (err) {
-      setError(err.message || 'Failed to signup');
+      setError(err.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }
@@ -38,7 +37,6 @@ export default function SignupPage() {
       <main className="flex-grow flex items-center justify-center px-gutter py-stack-lg relative z-10">
         <div className="max-w-[440px] w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
           
-          {/* Brand Logo */}
           <div className="flex items-center gap-3 mb-stack-lg">
             <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center shadow-lg shadow-black/5">
               <span className="material-symbols-outlined text-surface text-2xl">hive</span>
@@ -46,29 +44,15 @@ export default function SignupPage() {
             <h1 className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">MindHive</h1>
           </div>
 
-          {/* Signup Content Area */}
           <div className="w-full">
             <div className="text-center mb-stack-md">
-              <h2 className="font-headline-lg text-headline-lg mb-2">Join the Collective</h2>
-              <p className="font-body-md text-on-surface-variant">Start building your private knowledge base.</p>
+              <h2 className="font-headline-lg text-headline-lg mb-2">Set New Password</h2>
+              <p className="font-body-md text-on-surface-variant">Please choose a strong, unique password.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-stack-md">
               <div className="space-y-unit">
-                <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="email">Email Address</label>
-                <input 
-                  className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5" 
-                  id="email" 
-                  placeholder="name@example.com" 
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-unit">
-                <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="password">Password</label>
+                <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="password">New Password</label>
                 <input 
                   className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5" 
                   id="password" 
@@ -81,7 +65,7 @@ export default function SignupPage() {
               </div>
 
               <div className="space-y-unit">
-                <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="confirmPassword">Confirm Password</label>
+                <label className="font-label-md text-label-md text-on-surface-variant uppercase ml-1" htmlFor="confirmPassword">Confirm New Password</label>
                 <input 
                   className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md transition-all duration-200 bg-white/70 backdrop-blur-sm focus:outline-none focus:border-on-surface focus:shadow-lg focus:shadow-black/5" 
                   id="confirmPassword" 
@@ -105,22 +89,14 @@ export default function SignupPage() {
                 type="submit"
                 disabled={loading}
               >
-                {loading ? 'Creating Account...' : 'Join MindHive'}
-                {!loading && <span className="material-symbols-outlined text-lg">person_add</span>}
+                {loading ? 'Updating...' : 'Update Password'}
+                {!loading && <span className="material-symbols-outlined text-lg">lock_reset</span>}
               </button>
             </form>
-
-            <div className="mt-stack-lg pt-stack-md border-t border-outline-variant/30 text-center">
-              <p className="font-body-md text-on-surface-variant">
-                Already have an account? 
-                <Link className="text-on-surface font-bold ml-1" to="/login">Login</Link>
-              </p>
-            </div>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="py-stack-lg px-margin-page flex flex-col items-center gap-stack-sm mt-auto">
         <div className="font-label-md text-[10px] tracking-[0.25em] text-on-surface-variant opacity-60 uppercase text-center">
           MINDHIVE AI · PRIVATE & SECURE KNOWLEDGE BASE
