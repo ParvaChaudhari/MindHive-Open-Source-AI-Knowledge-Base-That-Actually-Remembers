@@ -48,7 +48,11 @@ class SupabaseService:
 
     async def update_document_status(self, doc_id: str, status: str):
         """Updates document processing status."""
-        self.client.table("documents").update({"status": status}).eq("id", doc_id).execute()
+        try:
+            result = self.client.table("documents").update({"status": status}).eq("id", doc_id).execute()
+            print(f"[{doc_id}] Status updated to '{status}'. Rows affected: {len(result.data)}")
+        except Exception as e:
+            print(f"[{doc_id}] ❌ CRITICAL: Failed to update status to '{status}': {e}")
 
     async def update_document_name(self, doc_id: str, user_id: str, name: str) -> Dict:
         """
@@ -131,10 +135,9 @@ class SupabaseService:
             .select("id, name, status, file_url, created_at, collection_id, user_id, summary, summary_generated_at")
             .eq("id", doc_id)
             .eq("user_id", user_id)
-            .single()
             .execute()
         )
-        return result.data
+        return result.data[0] if result.data else None
 
     async def delete_document(self, doc_id: str, user_id: str):
         """Deletes document record, chunks, and the file from storage."""

@@ -19,21 +19,31 @@ class GenerationService:
         self.flashcard_model = os.environ.get("NVIDIA_MODEL_FLASHCARD")
 
     async def _generate_with_retry(self, messages: List[dict], temperature: float = 0.3, model: str = None):
-        """Generates content using NVIDIA NIM with timing logs."""
+        """Generates content using NVIDIA NIM with timing logs and a hard timeout."""
         target_model = model or self.model
         last_err = None
         for attempt in range(3):
             try:
                 start_time = asyncio.get_event_loop().time()
-                response = await self.client.chat.completions.create(
-                    model=target_model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=2048
+                # Hard 90-second timeout to prevent hanging indefinitely
+                response = await asyncio.wait_for(
+                    self.client.chat.completions.create(
+                        model=target_model,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=2048
+                    ),
+                    timeout=90.0
                 )
                 duration = asyncio.get_event_loop().time() - start_time
                 print(f"INFO:     AI Generation ({target_model}) took {duration:.2f}s")
                 return response.choices[0].message.content
+            except asyncio.TimeoutError:
+                print(f"WARNING:  AI Generation timed out after 90s (attempt {attempt + 1}/3)")
+                last_err = TimeoutError("AI generation timed out.")
+                if attempt < 2:
+                    continue
+                raise UpstreamServiceUnavailable("AI service took too long to respond. Please try again.")
             except Exception as e:
                 msg = str(e).lower()
                 last_err = e
@@ -64,8 +74,10 @@ class GenerationService:
         return await self._generate_with_retry(messages, temperature=0.2)
 
     async def summarize_document(self, context_chunks: List[dict]) -> str:
-        """Generates a high-quality summary."""
-        context = "\n\n".join([c['content'] for c in context_chunks])
+        """Generates a high-quality summary, using a truncated context to prevent hangs."""
+        # Truncate to ~6000 chars to avoid overloading the model with huge documents
+        full_context = "\n\n".join([c['content'] for c in context_chunks])
+        context = full_context[:6000]
 
         messages = [
             {"role": "system", "content": "You are an expert summarizer. Create a clear, structured summary with an overview and key facts."},
@@ -75,10 +87,13 @@ class GenerationService:
         return await self._generate_with_retry(messages, temperature=0.3)
 
     async def youtube_title_and_summary(self, transcript_text: str) -> dict:
-        """Generates a clean YouTube title and TL;DR summary."""
+        """Generates a clean YouTube title and TL;DR summary using a preview of the transcript."""
+        # Truncate to avoid context overflow for the smaller chat model
+        preview_text = transcript_text[:1000]
+        
         messages = [
-            {"role": "system", "content": "You are a YouTube ingestion assistant. Return ONLY JSON with 'title' and 'summary' keys."},
-            {"role": "user", "content": f"Transcript:\n{transcript_text}"}
+            {"role": "system", "content": "You are a YouTube ingestion assistant. Return ONLY raw JSON with 'title' and 'summary' keys. Do not use markdown blocks like ```json."},
+            {"role": "user", "content": f"Transcript Preview:\n{preview_text}"}
         ]
 
         response_text = await self._generate_with_retry(messages, temperature=0.3)

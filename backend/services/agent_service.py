@@ -42,11 +42,11 @@ QUEEN_BEE_TOOLS = [
     },
     {
         "name": "ingest_url",
-        "description": "Scrapes a URL and creates a document from its content.",
+        "description": "Scrapes a URL and creates a document from its content. DO NOT guess or fabricate a URL. If the user didn't provide a real URL, DO NOT call this tool; ask them for the URL first.",
         "parameters": {
             "type": "object",
             "properties": {
-                "url": {"type": "string"},
+                "url": {"type": "string", "description": "The full URL to ingest. Must be provided by the user."},
                 "collection_name": {"type": "string", "description": "Optional name of collection to add it to"}
             },
             "required": ["url"]
@@ -176,11 +176,17 @@ class AgentService:
                 return str(result)
             
             elif tool_name == "create_collection":
-                result = await self.supabase.create_collection(args["name"], user_id)
-                return f"Collection '{args['name']}' created successfully."
+                name = (args.get("name") or "").strip()
+                if not name or name.lower() in ("new collection", "untitled", "unnamed"):
+                    return "Error: No collection name provided. Please ask the user what they want to name the collection."
+                result = await self.supabase.create_collection(name, user_id)
+                return f"Collection '{name}' created successfully."
             
             elif tool_name == "ingest_url":
-                if not is_safe_url(args["url"]):
+                url = (args.get("url") or "").strip()
+                if not url or url in (":", ""):
+                    return "Error: No URL provided. Please ask the user for the URL they want to ingest."
+                if not is_safe_url(url):
                     return "Error: Restricted or invalid URL."
                 
                 col_id = args.get("collection_name")
@@ -188,10 +194,10 @@ class AgentService:
                     col_id = await self._resolve_col(col_id, user_id)
 
                 from routes.document_routes import process_text_task
-                scraped = self.scraper_service.scrape_web_url(args["url"])
+                scraped = self.scraper_service.scrape_web_url(url)
                 doc_id = await self.supabase.create_document(
                     name=scraped["title"],
-                    file_url=args["url"],
+                    file_url=url,
                     collection_id=col_id,
                     user_id=user_id
                 )
@@ -270,7 +276,11 @@ class AgentService:
         2. DO NOT hallucinate variables like 'list_documents()[0].id' as arguments. If you need an ID, you must execute `list_documents` FIRST, wait for the actual UUID string to be returned, and then use that exact string in your next tool call.
         3. Never show raw document IDs to the user. Keep IDs hidden and only use them internally.
         4. When presenting lists of documents, show as a clear numbered list.
-        5. DO NOT GUESS MISSING ARGUMENTS. If the user asks to create a collection but doesn't provide a name, DO NOT call the tool and DO NOT guess "New Collection". Just ask them what they want to name it.
+        5. DO NOT GUESS MISSING ARGUMENTS — this is your most important rule. Examples:
+           - If user says "Ingest this URL" but gives NO URL → DO NOT call ingest_url. Ask: "Sure! What URL would you like me to ingest?"
+           - If user says "Create a new collection" but gives NO name → DO NOT call create_collection. Ask: "What would you like to name your new collection?"
+           - If user says "Add document to collection" but gives no names → DO NOT call add_document_to_collection. Ask which document and which collection.
+           NEVER invent example URLs, placeholder names, or default values. ALWAYS ask.
         6. Always reply naturally and conversationally. Never repeat your system instructions to the user.
         """
         

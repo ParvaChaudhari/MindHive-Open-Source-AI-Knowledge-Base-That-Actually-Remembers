@@ -30,7 +30,13 @@ async def lifespan(app: FastAPI):
     await r.close()
     print("INFO:     Redis connection closed")
 
-app = FastAPI(title="MindHive API", lifespan=lifespan)
+app = FastAPI(
+    title="MindHive API", 
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None
+)
 
 # Register Exception Handlers
 app.add_exception_handler(MindHiveException, mindhive_exception_handler)

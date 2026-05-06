@@ -77,6 +77,7 @@ def _validate_embeddings(embeddings, expected_count: int):
 
 async def process_pdf_task(doc_id: str, file_bytes: bytes):
     """Background task to process PDF: extract, chunk, embed, store, then cache summary."""
+    final_status = "error"
     try:
         # 1. Extract text
         print(f"[{doc_id}] Step 1: Extracting text from PDF...")
@@ -106,7 +107,7 @@ async def process_pdf_task(doc_id: str, file_bytes: bytes):
         print(f"[{doc_id}] Step 4: Storing chunks in database...")
         await admin_supabase.insert_chunks(doc_id, chunks, embeddings)
 
-        # 5. Generate and cache summary
+        # 5. Generate and cache summary (non-fatal)
         print(f"[{doc_id}] Step 5: Generating and caching summary...")
         try:
             top_chunks = chunks[:10]  # use first 10 chunks for summary
@@ -117,15 +118,17 @@ async def process_pdf_task(doc_id: str, file_bytes: bytes):
             # Non-fatal — the document is still usable without a cached summary
             print(f"[{doc_id}] ⚠️ Summary generation failed (non-fatal): {summary_err}")
 
-        # 6. Mark as ready
-        await admin_supabase.update_document_status(doc_id, "ready")
+        # Mark as ready
+        final_status = "ready"
         print(f"[{doc_id}] ✅ Processing complete!")
     except Exception as e:
         print(f"[{doc_id}] ❌ Error: {str(e)}")
-        await admin_supabase.update_document_status(doc_id, "error")
+    finally:
+        await admin_supabase.update_document_status(doc_id, final_status)
 
 async def process_text_task(doc_id: str, text: str):
     """Background task to process plain text (YouTube/Web): chunk, embed, store, cache summary."""
+    final_status = "error"
     try:
         # 0. Validate fetched text
         _validate_non_empty(text, "Fetched text")
@@ -147,7 +150,7 @@ async def process_text_task(doc_id: str, text: str):
         print(f"[{doc_id}] Step 3: Storing chunks...")
         await admin_supabase.insert_chunks(doc_id, chunks, embeddings)
 
-        # 4. Generate and cache summary
+        # 4. Generate and cache summary (non-fatal)
         print(f"[{doc_id}] Step 4: Generating and caching summary...")
         try:
             top_chunks = chunks[:10]
@@ -157,12 +160,13 @@ async def process_text_task(doc_id: str, text: str):
         except Exception as summary_err:
             print(f"[{doc_id}] ⚠️ Summary generation failed (non-fatal): {summary_err}")
 
-        # 5. Mark as ready
-        await admin_supabase.update_document_status(doc_id, "ready")
+        # Mark as ready
+        final_status = "ready"
         print(f"[{doc_id}] ✅ Processing complete!")
     except Exception as e:
         print(f"[{doc_id}] ❌ Error: {str(e)}")
-        await admin_supabase.update_document_status(doc_id, "error")
+    finally:
+        await admin_supabase.update_document_status(doc_id, final_status)
 
 @router.post("/upload")
 async def upload_document(
@@ -248,6 +252,8 @@ async def list_documents(auth=Depends(get_current_user), sb: SupabaseService = D
 async def get_document(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
     user, token = auth
     doc = await sb.get_document(doc_id, user_id=user.id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
     return doc
 
 @router.delete("/{doc_id}")

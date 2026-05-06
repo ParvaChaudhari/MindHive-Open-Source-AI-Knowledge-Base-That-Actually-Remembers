@@ -106,6 +106,27 @@ export default function QueenBee() {
     const text = overrideMessage || input;
     if (!text.trim() || isLoading) return;
 
+    // Block incomplete prompt stubs from being sent
+    const trimmed = text.trim();
+    if (trimmed.toLowerCase() === 'ingest this url:' || trimmed.toLowerCase() === 'ingest this url') {
+      setHistory(prev => [...prev, 
+        { role: 'user', content: text },
+        { role: 'agent', content: 'Please provide the URL you\'d like me to ingest! Paste it after "Ingest this URL:" and hit send.' }
+      ]);
+      setInput('Ingest this URL: ');
+      setTimeout(() => inputRef.current?.focus(), 10);
+      return;
+    }
+    if (/^create a new collection named\s*$/i.test(trimmed)) {
+      setHistory(prev => [...prev, 
+        { role: 'user', content: text },
+        { role: 'agent', content: 'What would you like to name your new collection? Type the name after "Create a new collection named" and hit send.' }
+      ]);
+      setInput('Create a new collection named ');
+      setTimeout(() => inputRef.current?.focus(), 10);
+      return;
+    }
+
     const userMessage = { role: 'user', content: text };
     const newHistory = [...history, userMessage];
     setHistory(newHistory);
