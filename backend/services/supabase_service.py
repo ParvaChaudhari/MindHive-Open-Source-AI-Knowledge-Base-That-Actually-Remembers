@@ -6,7 +6,6 @@ from services.security_utils import sanitize_log
 class SupabaseService:
     def __init__(self, token: str = None):
         url = os.environ.get("SUPABASE_URL")
-        anon_key = os.environ.get("SUPABASE_ANON_KEY")
         service_key = os.environ.get("SUPABASE_SERVICE_KEY")
         
         # Admin client for bypass operations (storage, etc)
