@@ -24,14 +24,20 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     
     try:
         if jwt_secret:
-            # Supabase tokens use HS256 with the JWT Secret
+            # Read the token header to see which algorithm Supabase is using
             header = jwt.get_unverified_header(token)
-            print(f"DEBUG: Token Header: {header}")
+            token_alg = header.get("alg", "HS256")
+            print(f"DEBUG: Token alg={token_alg}, full header={header}")
+            
+            # Accept all HMAC algorithms Supabase might use
+            allowed_algs = ["HS256", "HS384", "HS512"]
+            if token_alg not in allowed_algs:
+                raise ValueError(f"Unsupported token algorithm: {token_alg}")
             
             payload = jwt.decode(
                 token, 
                 jwt_secret, 
-                algorithms=["HS256"],
+                algorithms=allowed_algs,
                 options={"verify_aud": False} 
             )
         else:
