@@ -43,7 +43,9 @@ app.add_exception_handler(MindHiveException, mindhive_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 # CORS Middleware
-allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+# Sanitize: strip spaces and trailing slashes
+allowed_origins = [origin.strip().rstrip("/") for origin in raw_origins if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,

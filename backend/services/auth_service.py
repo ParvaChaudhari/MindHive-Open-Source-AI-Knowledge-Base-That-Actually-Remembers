@@ -24,13 +24,15 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     
     try:
         if jwt_secret:
-            # PRODUCTION MODE: Strictly verify the signature and expiration
             # Supabase tokens use HS256 with the JWT Secret
+            header = jwt.get_unverified_header(token)
+            print(f"DEBUG: Token Header: {header}")
+            
             payload = jwt.decode(
                 token, 
                 jwt_secret, 
                 algorithms=["HS256"],
-                options={"verify_aud": False} # Supabase uses 'authenticated' as aud
+                options={"verify_aud": False} 
             )
         else:
             # DEVELOPMENT MODE: Decode without verification if secret is missing

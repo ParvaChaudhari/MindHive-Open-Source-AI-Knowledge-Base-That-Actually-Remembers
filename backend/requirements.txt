@@ -13,3 +13,4 @@ requests
 redis
 fastapi-limiter==0.1.5
 openai
+PyJWT
