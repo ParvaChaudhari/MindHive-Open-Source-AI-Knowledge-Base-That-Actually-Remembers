@@ -46,10 +46,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         user = MockUser(user_id)
         return user, token
     except jwt.ExpiredSignatureError:
+        print(f"[{time.time()}] ❌ JWT Error: Token has expired")
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError as e:
-        print(f"JWT Error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid authentication token")
+        print(f"[{time.time()}] ❌ JWT Error: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid authentication token: {str(e)}")
     except Exception as e:
-        print(f"Auth error: {e}")
+        print(f"[{time.time()}] ❌ Auth error: {str(e)}")
         raise HTTPException(status_code=401, detail="Could not validate credentials")
