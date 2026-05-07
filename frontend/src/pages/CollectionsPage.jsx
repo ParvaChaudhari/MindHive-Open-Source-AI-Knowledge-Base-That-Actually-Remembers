@@ -150,7 +150,7 @@ export default function CollectionsPage({ onMenuClick }) {
             <div className="flex justify-center gap-2">
               <button
                 onClick={load}
-                className="flex items-center justify-center p-2 border border-outline-variant bg-surface text-on-surface rounded-lg hover:border-primary transition-all"
+                className="flex items-center justify-center p-2 border border-outline-variant bg-surface dark:bg-stone-900 text-on-surface dark:text-stone-50 rounded-lg hover:border-primary transition-all"
                 title="Reload collections"
               >
                 <span className="material-symbols-outlined text-sm">refresh</span>
@@ -179,14 +179,14 @@ export default function CollectionsPage({ onMenuClick }) {
               <div className="flex gap-2">
                 <button
                   onClick={load}
-                  className="flex items-center justify-center p-2 border border-outline-variant text-on-surface dark:text-stone-50 rounded-lg hover:bg-surface-container-low hover:border-primary transition-all"
+                  className="flex items-center justify-center p-2 border border-outline-variant bg-surface dark:bg-stone-900 text-on-surface dark:text-stone-50 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 hover:border-primary transition-all"
                   title="Reload collections"
                 >
                   <span className="material-symbols-outlined text-sm">refresh</span>
                 </button>
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 border border-outline-variant text-on-surface dark:text-stone-50 rounded-lg text-xs font-bold hover:bg-surface-container-low hover:border-primary transition-all"
+                  className="flex items-center gap-1.5 px-4 py-2 border border-outline-variant bg-surface dark:bg-stone-900 text-on-surface dark:text-stone-50 rounded-lg text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-800 hover:border-primary transition-all"
                 >
                   <span className="material-symbols-outlined text-sm">add</span>
                   New Collection
@@ -233,7 +233,7 @@ export default function CollectionsPage({ onMenuClick }) {
                       </button>
                       <button
                         onClick={() => setManageTarget(col)}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-surface border border-outline-variant text-on-surface dark:text-stone-50 rounded-lg text-xs font-bold hover:bg-surface-container-low transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-surface dark:bg-stone-900 border border-outline-variant text-on-surface dark:text-stone-50 rounded-lg text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">manage_search</span>
                         Manage
