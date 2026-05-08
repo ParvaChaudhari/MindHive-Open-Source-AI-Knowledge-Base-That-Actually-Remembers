@@ -170,3 +170,18 @@ async def summarize_chat_history(doc_id: str, auth=Depends(get_current_user), sb
     except Exception as e:
         print(f"[summarize_chat] Internal error: {e}")
         raise HTTPException(status_code=500, detail="Failed to summarize chat history.")
+
+@router.delete("/{doc_id}/chats")
+async def clear_chat_history(doc_id: str, auth=Depends(get_current_user), sb: SupabaseService = Depends(get_supabase)):
+    """Deletes all chat history for this document."""
+    user, token = auth
+    doc = await sb.get_document(doc_id, user_id=user.id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    try:
+        await chat_service.clear_chat_history(doc_id, user.id)
+        return {"status": "success", "message": "Chat history cleared"}
+    except Exception as e:
+        print(f"[clear_chat_history] Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear chat history.")

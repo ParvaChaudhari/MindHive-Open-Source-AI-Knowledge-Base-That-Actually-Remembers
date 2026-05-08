@@ -195,6 +195,23 @@ export const getChatHistory = async (docId: string): Promise<{ chats: { question
   return res.json();
 };
 
+export const summarizeChatHistory = async (docId: string): Promise<{ summary: string }> => {
+  const headers = await getHeaders();
+  const res = await fetch(`${API_BASE}/documents/${docId}/chats/summary`, { headers });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+};
+
+export const clearChatHistory = async (docId: string): Promise<any> => {
+  const headers = await getHeaders();
+  const res = await fetch(`${API_BASE}/documents/${docId}/chats`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+};
+
 export const agentChat = async (message: string, history: any[] = []): Promise<Response> => {
   const headers = await getHeaders();
   const res = await fetch(`${API_BASE}/agent/chat`, {

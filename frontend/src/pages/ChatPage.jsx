@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
-import { listDocuments, queryDocument, summarizeDocument, getDocument, getChatHistory } from '../api';
+import { listDocuments, queryDocument, summarizeDocument, getDocument, getChatHistory, clearChatHistory, summarizeChatHistory } from '../api';
 import { supabase } from '../supabaseClient';
 import ProfileDropdown from '../components/ProfileDropdown';
 import ErrorBoundary from '../components/common/ErrorBoundary';
@@ -42,6 +42,8 @@ export default function ChatPage({ onMenuClick }) {
   const bottomRef = useRef();
   const scrollContainerRef = useRef(null);
   const pendingNavigationRef = useRef(null);
+  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [isAssistantTyping, setIsAssistantTyping] = useState(false);
 
   const rowVirtualizer = useVirtualizer({
     count: messages.length,
@@ -163,7 +165,11 @@ export default function ChatPage({ onMenuClick }) {
     if (!input.trim() || !selectedDoc || loading) return;
     const question = input.trim();
     setInput('');
-    setMessages((m) => [...m, { role: 'user', content: question, sources: null }]);
+    setMessages((m) => {
+      // Fast-forward any currently typing messages
+      const updatedMessages = m.map(msg => ({ ...msg, isTyping: false }));
+      return [...updatedMessages, { role: 'user', content: question, sources: null }];
+    });
     setLoading(true);
     try {
       const data = await queryDocument(selectedDoc.id, question);
@@ -173,6 +179,7 @@ export default function ChatPage({ onMenuClick }) {
         sources: data.sources,
         isTyping: true,
       }]);
+      setIsAssistantTyping(true);
     } catch (e) {
       setMessages((m) => [...m, {
         role: 'assistant',
@@ -186,14 +193,56 @@ export default function ChatPage({ onMenuClick }) {
   const handleSummarize = async () => {
     if (!selectedDoc || summarizing) return;
     setSummarizing(true);
-    setMessages((m) => [...m, { role: 'user', content: '📝 Generate a summary of this document', sources: null }]);
+    setMessages((m) => {
+      const updatedMessages = m.map(msg => ({ ...msg, isTyping: false }));
+      return [...updatedMessages, { role: 'user', content: '📝 Generate a summary of this document', sources: null }];
+    });
     try {
       const data = await summarizeDocument(selectedDoc.id);
       setMessages((m) => [...m, { role: 'assistant', content: data.summary, sources: null, isTyping: true }]);
+      setIsAssistantTyping(true);
     } catch {
       setMessages((m) => [...m, { role: 'assistant', content: '❌ Could not generate summary.', sources: null }]);
     }
     setSummarizing(false);
+  };
+
+  const handleSummarizeChat = async (docToSummarize) => {
+    if (summarizing) return;
+    setSummarizing(true);
+    // Add user message optimistically and fast-forward previous typing
+    setMessages((m) => {
+      const updatedMessages = m.map(msg => ({ ...msg, isTyping: false }));
+      return [...updatedMessages, { role: 'user', content: '📝 Summarize our conversation so far', sources: null }];
+    });
+    try {
+      const data = await summarizeChatHistory(docToSummarize.id);
+      setMessages((m) => [...m, { role: 'assistant', content: data.summary, sources: null, isTyping: true }]);
+      setIsAssistantTyping(true);
+    } catch {
+      setMessages((m) => [...m, { role: 'assistant', content: '❌ Could not summarize chat history.', sources: null }]);
+    }
+    setSummarizing(false);
+  };
+
+  const handleClearChat = async (docToClear) => {
+    if (!window.confirm(`Are you sure you want to clear the chat history for "${docToClear.name}"? This cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      await clearChatHistory(docToClear.id);
+      if (selectedDoc?.id === docToClear.id) {
+        setMessages([{
+          role: 'assistant',
+          content: `Hello! I'm ready to answer questions about **${docToClear.name}**.\n\nAsk me anything, or click **Get Summary** for a quick overview.`,
+          sources: null,
+        }]);
+      }
+      setActiveMenuId(null);
+    } catch (e) {
+      alert("Failed to clear chat history.");
+    }
   };
 
   const autoSummarizedRef = useRef(false);
@@ -305,17 +354,80 @@ export default function ChatPage({ onMenuClick }) {
               </div>
             ) : (
               docs.map((doc) => (
-                <button
+                <div
                   key={doc.id}
-                  onClick={() => selectDoc(doc)}
-                  className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all ${selectedDoc?.id === doc.id
+                  className={`w-full text-left p-1 rounded-lg flex items-center gap-1 transition-all relative ${selectedDoc?.id === doc.id
                       ? 'bg-surface-container-highest border border-outline-variant shadow-sm'
                       : 'hover:bg-surface-container'
                     }`}
                 >
-                  <span className="material-symbols-outlined text-outline">description</span>
-                  <span className="text-sm font-label-md truncate">{doc.name}</span>
-                </button>
+                  <button 
+                    onClick={() => selectDoc(doc)}
+                    className="flex-1 flex items-center gap-3 p-2 overflow-hidden"
+                  >
+                    <span className="material-symbols-outlined text-outline">description</span>
+                    <span className="text-sm font-label-md truncate">{doc.name}</span>
+                  </button>
+                  <div className="relative shrink-0 pr-1">
+                    <button
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (activeMenuId?.id === doc.id) {
+                          setActiveMenuId(null);
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const isNearBottom = window.innerHeight - rect.bottom < 120;
+                          setActiveMenuId({ id: doc.id, position: isNearBottom ? 'top' : 'bottom' });
+                        }
+                      }}
+                      className="p-1 rounded-md text-stone-400 hover:text-stone-900 dark:hover:text-stone-50 hover:bg-stone-200/50 dark:hover:bg-stone-700/50 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">more_vert</span>
+                    </button>
+                    {activeMenuId?.id === doc.id && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-40" 
+                          onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }}
+                        />
+                        <div className={`absolute right-0 w-40 bg-surface border border-outline-variant rounded-lg shadow-lg z-50 overflow-hidden animate-in fade-in zoom-in duration-200 ${
+                          activeMenuId.position === 'top' 
+                            ? 'bottom-full mb-1 origin-bottom-right' 
+                            : 'top-full mt-1 origin-top-right'
+                        }`}>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(null);
+                              if (selectedDoc?.id !== doc.id) {
+                                await selectDoc(doc);
+                              }
+                              // We use a small timeout to let state settle before summarizing
+                              setTimeout(() => {
+                                handleSummarizeChat(doc);
+                              }, 100);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">summarize</span>
+                            Summarize Chat
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(null);
+                              handleClearChat(doc);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                            Clear Chat
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
               ))
             )}
           </div>
@@ -357,7 +469,7 @@ export default function ChatPage({ onMenuClick }) {
               <span className={`material-symbols-outlined text-sm ${summarizing ? 'animate-spin-reverse' : ''}`}>
                 {summarizing ? 'sync' : 'auto_awesome'}
               </span>
-              {summarizing ? 'Summarizing...' : 'Get Summary'}
+              <span className="hidden sm:inline">{summarizing ? 'Summarizing...' : 'Get Summary'}</span>
             </button>
             <div className="ml-2">
               <ProfileDropdown />
@@ -425,7 +537,12 @@ export default function ChatPage({ onMenuClick }) {
                                 }`}>
                                 <div className={`prose prose-stone dark:prose-invert max-w-none font-medium ${msg.role === 'user' ? 'text-surface' : 'text-on-surface'}`}>
                                   {msg.role === 'assistant' && msg.isTyping ? (
-                                    <Typewriter content={msg.content} />
+                                    <Typewriter 
+                                      content={msg.content} 
+                                      onComplete={() => {
+                                        setMessages(prev => prev.map((m, i) => i === virtualItem.index ? { ...m, isTyping: false } : m));
+                                      }} 
+                                    />
                                   ) : (
                                     <ReactMarkdown
                                       rehypePlugins={[rehypeSanitize]}

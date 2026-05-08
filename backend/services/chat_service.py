@@ -41,19 +41,20 @@ class ChatService:
         current_count = len(history)
 
         # 2. Check cache
-        cache_result = (
+        cache_response = (
             self.supabase.client.table("chat_summaries")
             .select("summary, message_count")
             .eq("doc_id", doc_id)
             .eq("user_id", user_id)
-            .single()
             .execute()
         )
+        
+        cached_data = cache_response.data[0] if cache_response.data else None
 
         # Return cached if counts match
-        if cache_result.data and cache_result.data.get("message_count") == current_count:
+        if cached_data and cached_data.get("message_count") == current_count:
             return {
-                "summary": cache_result.data["summary"],
+                "summary": cached_data["summary"],
                 "message_count": current_count,
                 "cached": True
             }
@@ -62,7 +63,7 @@ class ChatService:
         summary_text = await self.generation.summarize_chat(history)
 
         # 4. Save/Update cache
-        if cache_result.data:
+        if cached_data:
             self.supabase.client.table("chat_summaries").update({
                 "summary": summary_text,
                 "message_count": current_count
@@ -80,3 +81,10 @@ class ChatService:
             "message_count": current_count,
             "cached": False
         }
+
+    async def clear_chat_history(self, doc_id: str, user_id: str) -> None:
+        """Deletes all chat messages and cached summaries for a document."""
+        # Delete messages
+        self.supabase.client.table("chats").delete().eq("doc_id", doc_id).eq("user_id", user_id).execute()
+        # Delete cached summary
+        self.supabase.client.table("chat_summaries").delete().eq("doc_id", doc_id).eq("user_id", user_id).execute()
