@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from routes import document_routes, query_routes, collection_routes, timeline_routes, agent_routes
@@ -14,7 +14,20 @@ from services.security_utils import sanitize_log
 from exceptions import MindHiveException, mindhive_exception_handler, generic_exception_handler
 import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
+from redis.exceptions import NoScriptError
 from contextlib import asynccontextmanager
+
+# Monkey-patch RateLimiter to handle Upstash script evictions
+original_rate_limiter_call = RateLimiter.__call__
+async def patched_rate_limiter_call(self, request: Request, response: Response):
+    try:
+        return await original_rate_limiter_call(self, request, response)
+    except NoScriptError:
+        print("WARNING: Redis script evicted (Upstash). Reloading FastAPILimiter script...")
+        await FastAPILimiter.init(FastAPILimiter.redis)
+        return await original_rate_limiter_call(self, request, response)
+RateLimiter.__call__ = patched_rate_limiter_call
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

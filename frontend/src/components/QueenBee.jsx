@@ -106,29 +106,40 @@ export default function QueenBee() {
     const text = overrideMessage || input;
     if (!text.trim() || isLoading) return;
 
+    // Fast-forward previous typing messages
+    const updatedHistory = history.map(m => ({ ...m, isTyping: false }));
+
     // Block incomplete prompt stubs from being sent
     const trimmed = text.trim();
     if (trimmed.toLowerCase() === 'ingest this url:' || trimmed.toLowerCase() === 'ingest this url') {
-      setHistory(prev => [...prev, 
+      setHistory([...updatedHistory, 
         { role: 'user', content: text },
-        { role: 'agent', content: 'Please provide the URL you\'d like me to ingest! Paste it after "Ingest this URL:" and hit send.' }
+        { role: 'agent', content: 'Please provide the URL you\'d like me to ingest! Paste it after "Ingest this URL:" and hit send.', isTyping: true }
       ]);
       setInput('Ingest this URL: ');
       setTimeout(() => inputRef.current?.focus(), 10);
       return;
     }
     if (/^create a new collection named\s*$/i.test(trimmed)) {
-      setHistory(prev => [...prev, 
+      setHistory([...updatedHistory, 
         { role: 'user', content: text },
-        { role: 'agent', content: 'What would you like to name your new collection? Type the name after "Create a new collection named" and hit send.' }
+        { role: 'agent', content: 'What would you like to name your new collection? Type the name after "Create a new collection named" and hit send.', isTyping: true }
       ]);
       setInput('Create a new collection named ');
       setTimeout(() => inputRef.current?.focus(), 10);
       return;
     }
+    if (trimmed.toLowerCase() === 'what tasks can you do?' || trimmed.toLowerCase() === 'what tasks can you do') {
+      setHistory([...updatedHistory, 
+        { role: 'user', content: text },
+        { role: 'agent', content: 'Here are the things I can help you with:\n\n1. **Ingest URLs**: Paste a link and I\'ll read its content into your hive.\n2. **Manage Collections**: I can create new collections to organize your documents.\n3. **Knowledge Timeline**: I can show you what you learned over the past months.\n4. **General Tasks**: Ask me about your hive or to perform maintenance tasks.\n\nJust tell me what you need!', isTyping: true }
+      ]);
+      setInput('');
+      return;
+    }
 
     const userMessage = { role: 'user', content: text };
-    const newHistory = [...history, userMessage];
+    const newHistory = [...updatedHistory, userMessage];
     setHistory(newHistory);
     setInput('');
 
@@ -212,6 +223,7 @@ export default function QueenBee() {
   };
 
   const starters = [
+    "What tasks can you do?",
     "Show my timeline",
     "Ingest this URL",
     "Create a new collection"
