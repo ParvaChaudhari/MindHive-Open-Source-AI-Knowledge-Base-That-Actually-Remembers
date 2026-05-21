@@ -67,7 +67,14 @@ class GenerationService:
         ])
 
         messages = [
-            {"role": "system", "content": "You are an expert assistant for MindHive. Answer the question based ONLY on the provided context. If the answer is not in the context, say you don't know. Be concise."},
+            {"role": "system", "content": (
+                "You are an expert assistant for MindHive. Answer the user's question based ONLY on the provided context. "
+                "Give a clear, detailed, and well-structured answer using full sentences and paragraphs. "
+                "If the question asks what something does or is, explain it thoroughly with examples from the context. "
+                "Do NOT give a one-word or one-line answer — always elaborate and explain. "
+                "If the answer is not in the context, say so clearly. "
+                "If the user explicitly asks for a brief answer, then and only then keep it short."
+            )},
             {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
         ]
 
