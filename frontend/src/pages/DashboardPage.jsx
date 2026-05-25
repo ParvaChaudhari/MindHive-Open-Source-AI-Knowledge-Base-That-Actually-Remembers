@@ -2,10 +2,11 @@ import { listDocuments } from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ProfileDropdown from '../components/ProfileDropdown';
+import Skeleton from '../components/common/Skeleton';
 
 export default function DashboardPage({ onMenuClick }) {
   const navigate = useNavigate();
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['documents'],
     queryFn: listDocuments
   });
@@ -49,7 +50,9 @@ export default function DashboardPage({ onMenuClick }) {
                 <span className="material-symbols-outlined text-secondary text-xl">{s.icon}</span>
                 <span className="text-[10px] uppercase tracking-widest font-bold text-outline">{s.label}</span>
               </div>
-              <div className="text-3xl font-headline font-bold text-on-background">{s.value}</div>
+              <div className="text-3xl font-headline font-bold text-on-background">
+                {isLoading ? <Skeleton className="h-9 w-16 mt-1 mb-1" /> : s.value}
+              </div>
             </div>
           ))}
         </section>
