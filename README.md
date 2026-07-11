@@ -1,6 +1,6 @@
 # MindHive — AI-Powered Knowledge Base
 
-> Upload PDFs, YouTube videos, and web pages — then chat with your documents using Llama AI.
+> Upload PDFs, YouTube videos, and web pages — then chat with your documents using Llama AI and Gemini.
 
 MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that lets you build a personal knowledge base from any content source. Chunk it, embed it, and query it with natural language through a clean, modern interface.
 
@@ -19,7 +19,7 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 - **Rename & manage** — Rename documents and manage collection membership
 - **Auth & RLS** — Supabase Auth with strict PostgreSQL Row Level Security
 - **Export** — Download chat conversations as Markdown
-- **Queen Bee Agent** — Persistent AI assistant managing collections and learning history (Powered by Llama 3.3 70B)
+- **Queen Bee Agent** — Persistent AI assistant managing collections and learning history (Powered by Gemini 3.1 Pro)
 
 ---
 
@@ -52,7 +52,7 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 | **Caching/Security**| **Redis** (Distributed Rate Limiting) |
 | **DevOps** | **Docker**, Docker Compose, GitHub Actions (CI/CD) |
 | **Storage** | Supabase Storage (PDFs) |
-| **AI** | NVIDIA NIM (Llama 3.2 3B, 3.1 8B, 3.3 70B), Google Gemini (Embeddings) |
+| **AI** | NVIDIA NIM (Llama 3.2 3B, 3.1 8B), Google Gemini (Embeddings, Queen Bee Agent) |
 | **Auth** | Supabase Auth + JWT |
 
 ---
@@ -190,7 +190,7 @@ npm run dev
 | `SUPABASE_SERVICE_KEY` | Service role key (secret!) | Project Settings → API |
 | `GEMINI_API_KEY` | Google Gemini API key (for embeddings) | [aistudio.google.com](https://aistudio.google.com) |
 | `NVIDIA_API_KEY` | NVIDIA NIM API key | [build.nvidia.com](https://build.nvidia.com) |
-| `NVIDIA_MODEL` | Queen Bee Agent Model | [build.nvidia.com](https://build.nvidia.com/meta/llama-3_3-70b-instruct) |
+| `GEMINI_MODEL` | Queen Bee Agent Model | `gemini-3.1-pro-preview` |
 | `NVIDIA_MODEL_CHAT` | Fast Chat Model | [build.nvidia.com](https://build.nvidia.com/meta/llama-3.2-3b-instruct) |
 | `NVIDIA_MODEL_FLASHCARD` | Flashcard Generation Model | [build.nvidia.com](https://build.nvidia.com/meta/llama-3_1-8b-instruct) |
 

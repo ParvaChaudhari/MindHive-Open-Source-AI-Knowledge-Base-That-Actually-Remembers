@@ -121,10 +121,10 @@ OPENAI_TOOLS = [
 class AgentService:
     def __init__(self, token: str = None):
         self.client = AsyncOpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=os.environ.get("NVIDIA_API_KEY")
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=os.environ.get("GEMINI_API_KEY")
         )
-        self.model = os.environ.get("NVIDIA_MODEL")
+        self.model = os.environ.get("GEMINI_MODEL")
         self.timeline_service = TimelineService(token=token)
         self.supabase = SupabaseService(token=token)
         self.scraper_service = ScraperService()
@@ -310,7 +310,7 @@ class AgentService:
                     parallel_tool_calls=False,
                 )
             except Exception as e:
-                print(f"Error communicating with NVIDIA NIM: {e}")
+                print(f"Error communicating with Gemini API: {e}")
                 yield {"type": "answer", "content": "Something went wrong while thinking. Please try again in a moment or break your request down."}
                 return
             
