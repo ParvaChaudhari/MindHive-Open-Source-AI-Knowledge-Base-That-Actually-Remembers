@@ -1,44 +1,54 @@
-# MindHive — AI-Powered Knowledge Base
+# MindHive — AI Knowledge Base That Actually Remembers
 
-> Upload PDFs, YouTube videos, and web pages — then chat with your documents using Llama AI and Gemini.
+> Upload PDFs, YouTube videos, and web pages. Ask questions. Get answers with citations. And now — query your entire knowledge base directly from Claude Desktop via MCP.
 
-MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that lets you build a personal knowledge base from any content source. Chunk it, embed it, and query it with natural language through a clean, modern interface.
+**[🚀 Live Demo → mindhive-ai.vercel.app](https://mindhive-ai.vercel.app/)**
+
+![React](https://img.shields.io/badge/React_19-20232A?style=flat&logo=react&logoColor=61DAFB)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
+![Google Gemini](https://img.shields.io/badge/Google_Gemini-4285F4?style=flat&logo=google&logoColor=white)
+
+---
+
+## What is MindHive?
+
+MindHive is a full-stack **RAG (Retrieval-Augmented Generation)** application that turns any content — PDFs, YouTube videos, web articles — into a searchable, queryable knowledge base.
+
+Unlike a simple chatbot, MindHive remembers *your* documents. Every answer is grounded in your actual uploaded content, with page-level citations so you always know where the information came from. Collections let you group related documents and query across all of them at once.
+
+The backend is live on GCP — you can sign up and start using it immediately at the link above.
 
 ---
 
 ## Features
 
-- **PDF ingestion** — Upload PDFs, extract text, chunk and embed automatically
-- **YouTube ingestion** — Paste a YouTube URL and ingest the transcript
-- **Web page ingestion** — Scrape any URL and add it to your knowledge base
-- **Single-document chat** — Ask questions about a specific document with page-level citations
-- **Collections** — Group documents and query across all of them simultaneously
-- **Cross-document RAG** — Powered by pgvector similarity search + Llama AI
-- **Document summaries** — Auto-generated TL;DRs for any document or collection
-- **Flashcard generation** — Generate Q&A study cards from any document
-- **Rename & manage** — Rename documents and manage collection membership
-- **Auth & RLS** — Supabase Auth with strict PostgreSQL Row Level Security
-- **Export** — Download chat conversations as Markdown
-- **Queen Bee Agent** — Persistent AI assistant managing collections and learning history (Powered by Gemini 3.1 Pro)
+- **Multi-source ingestion** — Upload PDFs, paste a YouTube URL, or scrape any web page
+- **Single-document Q&A** — Ask questions about a specific document with page-level citations
+- **Collections** — Group documents and run cross-document RAG queries across an entire collection
+- **AI Summaries** — Auto-generated TL;DRs for any document or collection
+- **Flashcard generation** — Generate Q&A study cards from any document in one click
+- **Queen Bee Agent** — A persistent AI assistant that manages your knowledge base, remembers your collections, and learns your research history (powered by Gemini)
+- **Claude MCP Integration** — Query your MindHive knowledge base directly from Claude Desktop
+- **Export** — Download any chat conversation as Markdown
+- **Full auth + data isolation** — Supabase Auth with PostgreSQL Row Level Security keeps every user's data completely separate
 
 ---
 
-## Security & Production Hardening
+## Claude MCP Integration
 
-- **Global Exception Handling:** Centralized middleware handles all upstream AI and database errors, ensuring consistent, secure, and user-friendly JSON responses across the entire API.
-- **Distributed Rate Limiting:** Integrated **Redis** + `fastapi-limiter` to enforce global rate limits across multiple server instances, replacing fragile in-memory tracking.
-- **SSRF Prevention:** Strict URL validation and local IP blocking for the web ingestion pipeline.
-- **Payload Validation:** Enforced file size limits, PDF magic-byte verification, and strict Pydantic models for request bodies.
-- **Log Sanitization:** Automated redaction of sensitive environment variables (API keys, DB credentials) from backend server logs.
-- **Containerization:** Fully Dockerized architecture (Frontend, Backend, Redis) for seamless, predictable deployment and environment consistency.
+MindHive ships with a **Model Context Protocol (MCP) server** that lets you query your knowledge base directly from Claude Desktop — no browser required.
 
----
+Once configured, Claude can:
+- `list_collections` — see all your collections
+- `list_documents` — browse all your documents
+- `get_collection_details` — get documents inside a collection
+- `get_document_summary` — fetch AI-generated summaries
+- `query_document` — ask RAG questions about a specific document
+- `query_collection` — ask RAG questions across all documents in a collection
 
-## Performance & Optimization
-
-- **Chat List Virtualization:** Optimized chat rendering using `@tanstack/react-virtual`. Even conversations with thousands of messages remain lag-free by only rendering items currently in the viewport.
-- **Skeleton Loaders:** Replaced generic spinning icons with pulsating content placeholders, significantly reducing perceived wait times and improving layout stability.
-- **Modular Component Architecture:** Heavily refactored frontend code into single-responsibility components and specific feature modules for better maintainability and faster build times.
+**To set it up**, open the live app, click **Claude MCP Integration** in the sidebar, and follow the 3-step guide. Your bearer token is injected automatically.
 
 ---
 
@@ -47,13 +57,34 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 | Layer | Technology |
 |---|---|
 | **Frontend** | React 19, Vite, TailwindCSS v4, React Query, react-virtual |
-| **Backend** | FastAPI, Uvicorn, Python 3.11+, fastapi-limiter |
+| **Backend** | FastAPI, Uvicorn, Python 3.11+ |
 | **Database** | Supabase (PostgreSQL + pgvector) |
-| **Caching/Security**| **Redis** (Distributed Rate Limiting) |
-| **DevOps** | **Docker**, Docker Compose, GitHub Actions (CI/CD) |
+| **Caching / Rate Limiting** | Redis + fastapi-limiter |
 | **Storage** | Supabase Storage (PDFs) |
-| **AI** | NVIDIA NIM (Llama 3.2 3B, 3.1 8B), Google Gemini (Embeddings, Queen Bee Agent) |
+| **AI — Embeddings** | Google Gemini (`text-embedding-004`) |
+| **AI — Chat & Flashcards** | NVIDIA NIM (Llama 3.2 3B, Llama 3.1 8B) |
+| **AI — Agent** | Google Gemini (`gemini-3.1-pro-preview`) |
 | **Auth** | Supabase Auth + JWT |
+| **DevOps** | Docker, Docker Compose |
+
+---
+
+## Security & Production Hardening
+
+- **Distributed Rate Limiting** — Redis + `fastapi-limiter` enforces global rate limits across server instances
+- **SSRF Prevention** — Strict URL validation and local IP blocking on the web ingestion pipeline
+- **Payload Validation** — File size limits, PDF magic-byte verification, and strict Pydantic models
+- **Global Exception Handling** — Centralized middleware ensures consistent, safe JSON error responses
+- **Log Sanitization** — Automatic redaction of API keys and DB credentials from server logs
+- **Row Level Security** — PostgreSQL RLS ensures users can only ever access their own data
+
+---
+
+## Performance
+
+- **Chat List Virtualization** — `@tanstack/react-virtual` keeps even thousand-message conversations lag-free
+- **Skeleton Loaders** — Content-aware loading placeholders instead of spinners
+- **Modular Architecture** — Single-responsibility components and feature modules for fast builds
 
 ---
 
@@ -61,157 +92,131 @@ MindHive is a full-stack RAG (Retrieval-Augmented Generation) application that l
 
 ```
 MindHive/
-├── backend/                  # FastAPI application
-│   ├── main.py               # App entry point, route registration
-│   ├── requirements.txt      # Python dependencies
-│   ├── .env.example          # Environment variable template
+├── backend/                     # FastAPI application
+│   ├── main.py                  # App entry point, route registration
+│   ├── requirements.txt
+│   ├── .env.example
 │   ├── routes/
 │   │   ├── document_routes.py   # Upload, list, delete, rename, YouTube, web
 │   │   ├── collection_routes.py # CRUD, manage docs, cross-doc query & summary
 │   │   └── query_routes.py      # Single-document Q&A + summarization
 │   └── services/
 │       ├── supabase_service.py  # All database & storage operations
-│       ├── embedding_service.py # Gemini text-embedding-004 with batching
-│       ├── generation_service.py# Gemini answer, summary, flashcard generation
+│       ├── embedding_service.py # Gemini embeddings with batching
+│       ├── generation_service.py# Answer, summary, flashcard generation
 │       ├── pdf_service.py       # PyMuPDF extraction + LangChain chunking
-│       ├── scraper_service.py   # YouTube transcript + web page scraping
+│       ├── scraper_service.py   # YouTube transcript + web scraping
 │       ├── auth_service.py      # JWT validation via Supabase
-│       ├── agent_service.py     # Queen Bee autonomous agent logic
-│       ├── security_utils.py    # Log sanitization and rate limiting
-│       └── upstream_errors.py   # Typed upstream error classes
+│       ├── agent_service.py     # Queen Bee agent logic
+│       └── security_utils.py   # Log sanitization, rate limiting helpers
 │
-├── frontend/                 # React + Vite application
-│   ├── index.html
-│   ├── package.json
-│   ├── .env.example          # Environment variable template
+├── frontend/                    # React + Vite application
 │   └── src/
-│       ├── api.js            # All fetch helpers (typed, auth-aware)
-│       ├── supabaseClient.js # Supabase JS client initialisation
-│       ├── App.jsx           # Router + layout
-│       ├── pages/
-│       │   ├── DashboardPage.jsx
-│       │   ├── DocumentsPage.jsx
-│       │   ├── CollectionsPage.jsx
-│       │   ├── ChatPage.jsx
-│       │   ├── UploadPage.jsx
-│       │   ├── LoginPage.jsx
-│       │   └── SignupPage.jsx
-│       └── components/
-│           ├── Sidebar.jsx
-│           ├── UploadWidget.jsx
-│           ├── FlashcardsModal.jsx
-│           ├── ProfileDropdown.jsx
-│           └── QueenBee.jsx      # Agent floating widget
+│       ├── api.js               # Typed, auth-aware fetch helpers
+│       ├── App.jsx              # Router + layout
+│       ├── pages/               # One file per route
+│       └── components/          # Sidebar, modals, QueenBee widget, etc.
+│
+└── mcp-server/                  # MCP server (Claude Desktop bridge)
+    ├── main.py
+    └── requirements.txt
 ```
 
 ---
 
-## Getting Started
+## Getting Started (Self-Hosting)
+
+The backend is already live — you don't need to host anything to use MindHive. But if you want to run your own instance:
 
 ### Prerequisites
 
 - Python 3.11+
 - Node.js 18+
-- A [Supabase](https://supabase.com) project with:
-  - `pgvector` extension enabled
-  - `documents`, `chunks`, and `collections` tables (see schema below)
-  - A `pdfs` storage bucket
-  - Auth enabled
+- A [Supabase](https://supabase.com) project with `pgvector` enabled (see schema below)
 - A [Google Gemini API key](https://aistudio.google.com/)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Recommended)
+- An [NVIDIA NIM API key](https://build.nvidia.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (recommended)
 
 ---
 
-## Quickstart (Docker)
-
-The fastest way to get MindHive running locally is with Docker Compose:
+### Quickstart with Docker
 
 ```bash
-# 1. Fill in your API keys in backend/.env and frontend/.env
-# 2. Launch the entire Hive
+# Clone the repo
+git clone https://github.com/ParvaChaudhari/MindHive-Open-Source-AI-Knowledge-Base-That-Actually-Remembers
+cd MindHive-Open-Source-AI-Knowledge-Base-That-Actually-Remembers
+
+# Fill in your keys
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+# Edit both .env files with your credentials
+
+# Launch everything
 docker-compose up --build
 ```
-Access the frontend at `http://localhost:5174` and the backend at `http://localhost:8000`.
+
+Frontend → `http://localhost:5174` · Backend → `http://localhost:8000`
 
 ---
 
-## Manual Setup
+### Manual Setup
 
-### 1. Backend Setup
-
+**Backend**
 ```bash
 cd backend
-
-# Create and activate virtual environment
 python -m venv venv
 venv\Scripts\activate        # Windows
 # source venv/bin/activate   # macOS / Linux
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Copy env template and fill in your values
-copy .env.example .env
-# Then edit backend/.env with your keys
-
-# Start the API server
+cp .env.example .env         # Fill in your keys
 python main.py
-# Runs on http://localhost:8000
 ```
 
----
-
-### 2. Frontend Setup
-
+**Frontend**
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Copy env template and fill in your values
-copy .env.example .env
-# Then edit frontend/.env with your Supabase public keys
-
-# Start the dev server
+cp .env.example .env         # Fill in your Supabase public keys
 npm run dev
-# Runs on http://localhost:5173
 ```
 
 ---
 
-### 3. Environment Variables
+### Environment Variables
 
 #### `backend/.env`
 
 | Variable | Description | Where to find |
 |---|---|---|
-| `SUPABASE_URL` | Your Supabase project URL | Project Settings → API |
-| `SUPABASE_SERVICE_KEY` | Service role key (secret!) | Project Settings → API |
-| `GEMINI_API_KEY` | Google Gemini API key (for embeddings) | [aistudio.google.com](https://aistudio.google.com) |
-| `NVIDIA_API_KEY` | NVIDIA NIM API key | [build.nvidia.com](https://build.nvidia.com) |
-| `GEMINI_MODEL` | Queen Bee Agent Model | `gemini-3.1-pro-preview` |
-| `NVIDIA_MODEL_CHAT` | Fast Chat Model | [build.nvidia.com](https://build.nvidia.com/meta/llama-3.2-3b-instruct) |
-| `NVIDIA_MODEL_FLASHCARD` | Flashcard Generation Model | [build.nvidia.com](https://build.nvidia.com/meta/llama-3_1-8b-instruct) |
+| `SUPABASE_URL` | Supabase project URL | Project Settings → API |
+| `SUPABASE_SERVICE_KEY` | Service role key (**keep secret**) | Project Settings → API |
+| `GEMINI_API_KEY` | For embeddings + Queen Bee agent | [aistudio.google.com](https://aistudio.google.com) |
+| `NVIDIA_API_KEY` | For chat + flashcard models | [build.nvidia.com](https://build.nvidia.com) |
+| `GEMINI_MODEL` | Agent model name | `gemini-3.1-pro-preview` |
+| `NVIDIA_MODEL_CHAT` | Fast chat model | `meta/llama-3.2-3b-instruct` |
+| `NVIDIA_MODEL_FLASHCARD` | Flashcard generation model | `meta/llama-3.1-8b-instruct` |
 
 #### `frontend/.env`
 
 | Variable | Description | Where to find |
 |---|---|---|
-| `VITE_SUPABASE_URL` | Your Supabase project URL | Project Settings → API |
+| `VITE_SUPABASE_URL` | Supabase project URL | Project Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | Public anon key (safe to expose) | Project Settings → API |
 
 ---
 
-### 4. Database Schema
+### Database Schema
 
-Run this SQL in your Supabase SQL editor:
+<details>
+<summary>Click to expand SQL setup</summary>
+
+Run this in your Supabase SQL editor:
 
 ```sql
 -- Enable pgvector
 create extension if not exists vector;
 
--- Collections table (must exist before documents due to FK)
+-- Collections table
 create table collections (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -241,17 +246,14 @@ create table chunks (
   created_at timestamptz default now()
 );
 
--- pgvector similarity search function (single document)
+-- Similarity search (single document)
 create or replace function match_chunks(
   query_embedding vector(768),
   match_doc_id uuid,
   match_count int default 5
 )
-returns table (
-  id uuid, doc_id uuid, content text, page_number int, similarity float
-)
-language sql stable
-as $$
+returns table (id uuid, doc_id uuid, content text, page_number int, similarity float)
+language sql stable as $$
   select id, doc_id, content, page_number,
          1 - (embedding <=> query_embedding) as similarity
   from chunks
@@ -260,17 +262,14 @@ as $$
   limit match_count;
 $$;
 
--- pgvector similarity search function (cross-collection)
+-- Similarity search (cross-collection)
 create or replace function match_chunks_in_collection(
   query_embedding vector(768),
   match_collection_id uuid,
   match_count int default 10
 )
-returns table (
-  id uuid, doc_id uuid, doc_name text, content text, page_number int, similarity float
-)
-language sql stable
-as $$
+returns table (id uuid, doc_id uuid, doc_name text, content text, page_number int, similarity float)
+language sql stable as $$
   select c.id, c.doc_id, d.name as doc_name, c.content, c.page_number,
          1 - (c.embedding <=> query_embedding) as similarity
   from chunks c
@@ -281,35 +280,10 @@ as $$
 $$;
 ```
 
----
-
-## API Reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/documents/upload` | Upload and process a PDF |
-| `POST` | `/documents/youtube` | Ingest a YouTube video transcript |
-| `POST` | `/documents/web` | Ingest a web page |
-| `GET` | `/documents/` | List all documents for current user |
-| `GET` | `/documents/:id` | Get a single document |
-| `PATCH` | `/documents/:id` | Rename a document |
-| `DELETE` | `/documents/:id` | Delete a document and its embeddings |
-| `POST` | `/documents/:id/query` | Ask a question about a document |
-| `GET` | `/documents/:id/summary` | Get an AI summary |
-| `GET` | `/documents/:id/flashcards` | Generate flashcards |
-| `POST` | `/collections/` | Create a collection |
-| `GET` | `/collections/` | List collections |
-| `GET` | `/collections/:id` | Get collection + its documents |
-| `DELETE` | `/collections/:id` | Delete a collection |
-| `POST` | `/collections/:id/documents` | Add a document to a collection |
-| `DELETE` | `/collections/:id/documents/:doc_id` | Remove a document from a collection |
-| `POST` | `/collections/:id/query` | Cross-document RAG query |
-| `GET` | `/collections/:id/summary` | AI summary across all docs in collection |
-| `POST` | `/agent/chat` | Interact with Queen Bee autonomous agent |
+</details>
 
 ---
-
 
 ## License
 
-MIT — feel free to fork and build on it.
+MIT — free to fork, extend, and build on.
