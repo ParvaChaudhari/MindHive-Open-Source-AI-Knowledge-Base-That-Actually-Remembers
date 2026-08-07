@@ -1,10 +1,6 @@
 import os
 import httpx
 from mcp.server.fastmcp import FastMCP
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 mcp = FastMCP("MindHive")
 
@@ -33,6 +29,17 @@ async def list_documents() -> dict:
     async with httpx.AsyncClient(follow_redirects=True) as client:
         response = await client.get(
             f"{BACKEND_URL}/documents/",
+            headers=get_headers(),
+        )
+        response.raise_for_status()
+        return response.json()
+
+@mcp.tool()
+async def get_collection_details(collection_id: str) -> dict:
+    """Get details about a specific collection, including a list of all documents inside it."""
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        response = await client.get(
+            f"{BACKEND_URL}/collections/{collection_id}",
             headers=get_headers(),
         )
         response.raise_for_status()

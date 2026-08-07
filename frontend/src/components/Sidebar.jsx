@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import McpConfigModal from './McpConfigModal';
 // useAuth removed as it's no longer needed in Sidebar
 
 const navItems = [
@@ -9,6 +11,7 @@ const navItems = [
 ];
 
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggle }) {
+  const [isMcpModalOpen, setIsMcpModalOpen] = useState(false);
   return (
     <>
       {/* Mobile Overlay */}
@@ -68,7 +71,35 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggle }) {
         ))}
       </nav>
 
+        {/* MCP Integration Button */}
+        <div className={`mt-auto pt-6 px-4 ${isCollapsed ? 'hidden' : 'block'}`}>
+          <button
+            onClick={() => setIsMcpModalOpen(true)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-surface-container-high border border-outline-variant hover:border-primary hover:bg-primary-container/20 text-on-surface transition-all group"
+          >
+            <img src="/mcp.png" alt="MCP Logo" className="w-5 h-5 shrink-0 object-contain mix-blend-multiply grayscale contrast-200 brightness-110 dark:invert dark:mix-blend-screen" />
+            <span className="font-label-md text-sm whitespace-nowrap">Claude MCP Integration</span>
+          </button>
+        </div>
+
+        {isCollapsed && (
+          <div className="mt-auto pt-6 px-2 flex justify-center">
+             <button
+              onClick={() => setIsMcpModalOpen(true)}
+              title="Claude MCP Integration"
+              className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high hover:bg-primary-container/20 text-primary transition-colors"
+            >
+              <img src="/mcp.png" alt="MCP Logo" className="w-5 h-5 object-contain mix-blend-multiply grayscale contrast-200 brightness-110 dark:invert dark:mix-blend-screen" />
+            </button>
+          </div>
+        )}
+
     </aside>
+
+    <McpConfigModal 
+      isOpen={isMcpModalOpen} 
+      onClose={() => setIsMcpModalOpen(false)} 
+    />
     </>
   );
 }
