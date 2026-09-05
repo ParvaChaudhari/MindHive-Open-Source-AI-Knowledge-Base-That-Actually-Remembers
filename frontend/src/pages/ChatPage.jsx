@@ -604,7 +604,7 @@ export default function ChatPage({ onMenuClick }) {
                 </button>
               </div>
               <p className="max-w-[800px] mx-auto mt-3 text-[10px] text-center text-outline">
-                MindHive is powered by Llama 3.2 Instruct. Responses are grounded in your knowledge base.
+                MindHive is powered by Gemini 3 Flash. Responses are grounded in your knowledge base.
               </p>
             </div>
           </>

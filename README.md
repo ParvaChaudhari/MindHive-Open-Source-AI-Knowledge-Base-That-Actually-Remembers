@@ -61,8 +61,8 @@ Once configured, Claude can:
 | **Database** | Supabase (PostgreSQL + pgvector) |
 | **Caching / Rate Limiting** | Redis + fastapi-limiter |
 | **Storage** | Supabase Storage (PDFs) |
-| **AI — Embeddings** | Google Gemini (`text-embedding-004`) |
-| **AI — Chat & Flashcards** | NVIDIA NIM (Llama 3.2 3B, Llama 3.1 8B) |
+| **AI — Embeddings** | Google Gemini (`gemini-embedding-001`) |
+| **AI — Chat & Flashcards** | Google Gemini (`gemini-3-flash-preview`) |
 | **AI — Agent** | Google Gemini (`gemini-3.1-pro-preview`) |
 | **Auth** | Supabase Auth + JWT |
 | **DevOps** | Docker, Docker Compose |
@@ -134,7 +134,7 @@ The backend is already live — you don't need to host anything to use MindHive.
 - Node.js 18+
 - A [Supabase](https://supabase.com) project with `pgvector` enabled (see schema below)
 - A [Google Gemini API key](https://aistudio.google.com/)
-- An [NVIDIA NIM API key](https://build.nvidia.com/)
+- A [Redis](https://upstash.com/) instance (or local Redis) for rate limiting
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (recommended)
 
 ---
@@ -190,11 +190,11 @@ npm run dev
 |---|---|---|
 | `SUPABASE_URL` | Supabase project URL | Project Settings → API |
 | `SUPABASE_SERVICE_KEY` | Service role key (**keep secret**) | Project Settings → API |
-| `GEMINI_API_KEY` | For embeddings + Queen Bee agent | [aistudio.google.com](https://aistudio.google.com) |
-| `NVIDIA_API_KEY` | For chat + flashcard models | [build.nvidia.com](https://build.nvidia.com) |
-| `GEMINI_MODEL` | Agent model name | `gemini-3.1-pro-preview` |
-| `NVIDIA_MODEL_CHAT` | Fast chat model | `meta/llama-3.2-3b-instruct` |
-| `NVIDIA_MODEL_FLASHCARD` | Flashcard generation model | `meta/llama-3.1-8b-instruct` |
+| `SUPABASE_JWT_SECRET` | Supabase JWT secret | Project Settings → API |
+| `REDIS_URL` | Redis URL for rate limiting | [Upstash](https://upstash.com) or local Redis |
+| `GEMINI_API_KEY` | For all AI models (chat, agent, embeddings, flashcards) | [aistudio.google.com](https://aistudio.google.com) |
+| `GEMINI_MODEL` | Queen Bee agent model | `gemini-3.1-pro-preview` |
+| `GEMINI_FLASH_MODEL` | Fast chat, summary & flashcard model | `gemini-3-flash-preview` |
 
 #### `frontend/.env`
 
