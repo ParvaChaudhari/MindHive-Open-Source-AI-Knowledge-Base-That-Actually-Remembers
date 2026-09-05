@@ -33,15 +33,21 @@ RateLimiter.__call__ = patched_rate_limiter_call
 async def lifespan(app: FastAPI):
     # Startup: Initialize Redis and Limiter
     redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
-    r = redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
-    await FastAPILimiter.init(r)
-    print(f"INFO:     Redis connection established at {redis_url}")
+    try:
+        r = redis.from_url(redis_url, encoding="utf-8", decode_responses=True, socket_connect_timeout=5)
+        await FastAPILimiter.init(r)
+        print(f"INFO:     Redis connection established at {redis_url}")
+    except Exception as e:
+        print(f"WARNING:  Redis connection failed — rate limiting disabled. Error: {e}")
     
     yield
     
-    # Shutdown: Close Redis connection
-    await r.close()
-    print("INFO:     Redis connection closed")
+    # Shutdown: Close Redis connection (best-effort)
+    try:
+        await r.close()
+        print("INFO:     Redis connection closed")
+    except Exception:
+        pass
 
 app = FastAPI(
     title="MindHive API", 

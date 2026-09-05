@@ -10,16 +10,15 @@ from services.security_utils import sanitize_log
 class GenerationService:
     def __init__(self):
         self.client = AsyncOpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=os.environ.get("NVIDIA_API_KEY")
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=os.environ.get("GEMINI_API_KEY")
         )
-        # Default model for chat and simple tasks
-        self.model = os.environ.get("NVIDIA_MODEL_CHAT")
-        # High quality model for flashcards
-        self.flashcard_model = os.environ.get("NVIDIA_MODEL_FLASHCARD")
+        # Use Gemini Flash for fast chat and flashcard generation
+        self.model = os.environ.get("GEMINI_FLASH_MODEL")
+        self.flashcard_model = os.environ.get("GEMINI_FLASH_MODEL")
 
     async def _generate_with_retry(self, messages: List[dict], temperature: float = 0.3, model: str = None):
-        """Generates content using NVIDIA NIM with timing logs and a hard timeout."""
+        """Generates content using Google Gemini with timing logs and a hard timeout."""
         target_model = model or self.model
         last_err = None
         for attempt in range(3):
